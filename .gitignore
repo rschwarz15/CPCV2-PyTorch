@@ -1,0 +1,5 @@
+# Extensions to ignore
+*.npy
+
+# Directories to ignore
+PetImages/
