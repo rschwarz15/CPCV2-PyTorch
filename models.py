@@ -4,11 +4,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.models as models
 
-import numpy as np
-from tqdm import tqdm
-import time
 import os
 import cv2
+import time
+import numpy as np
+from tqdm import tqdm
+
 import matplotlib.pyplot as plt
 
 class MobileNetV2(nn.Module):
@@ -29,7 +30,6 @@ class MobileNetV2(nn.Module):
     def forward(self, x):   
         x = self.model.features(x).mean([2, 3])
         return x
-
 
 class CDC(nn.Module):
 
@@ -112,14 +112,4 @@ class CDC(nn.Module):
 
         return encodings, preds
 
-if __name__ == "__main__":
-    net = CDC(5,5)
-
-    # simulate passing a batch of 5 images
-    x = torch.randn(5,7,7,1,64,64)
-    h = net.init_hidden()
-
-    encodings, predictions = net(x, h)
-
-    pass
 
