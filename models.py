@@ -9,8 +9,12 @@ import cv2
 import time
 import numpy as np
 from tqdm import tqdm
-
 import matplotlib.pyplot as plt
+
+# Workaround for Python 3.8 Error -> RuntimeError: error in LoadLibraryA
+# Fix being released with torch 1.5
+import ctypes
+ctypes.cdll.LoadLibrary('caffe2_nvrtc.dll')
 
 class MobileNetV2(nn.Module):
     def __init__(self):
@@ -36,6 +40,7 @@ class CDC(nn.Module):
     def __init__(self, batch_size, pred_steps):
         super().__init__()
 
+        self.device = torch.device("cuda:0")
         self.batch_size = batch_size
         self.pred_steps = pred_steps
         self.hidden_size = 256
@@ -66,7 +71,7 @@ class CDC(nn.Module):
 
         ### FIND ALL ENCODING VECTORS
         # For each image find encoding vector for all 49 patches
-        encodings = torch.tensor([])
+        encodings = torch.tensor([]).to(self.device)
 
         for img in range(self.batch_size):
             z = self.enc.features(x[img]).mean([2, 3]) # z = 49 * 1 * 1280
@@ -74,16 +79,16 @@ class CDC(nn.Module):
 
         ### FIND ALL CONTEXT VECTORS
         # For each image traverse each column to find context vector for first 6 rows
-        contexts = torch.tensor([])
+        contexts = torch.tensor([]).to(self.device)
 
         # for each image in batch
         for img in range(self.batch_size):
-            img_contexts = torch.tensor([])
+            img_contexts = torch.tensor([]).to(self.device)
             # for each column
             for col in range(7):
                 # reset hidden vector at start of each column
                 h = hidden
-                col_contexts = torch.tensor([])
+                col_contexts = torch.tensor([]).to(self.device)
 
                 # for each row
                 for row in range(6):
@@ -96,14 +101,14 @@ class CDC(nn.Module):
 
         ### FIND ALL PREDICTED VECTORS
         # For each image and prediction length build a 7x7 tensor of predictions, pad with rows of zeros
-        preds = torch.tensor([])
+        preds = torch.tensor([]).to(self.device)
         for img in range(self.batch_size):
-            step_preds = torch.tensor([])
+            step_preds = torch.tensor([]).to(self.device)
 
-            for pred_step in range(self.pred_steps):
-                zeros = torch.zeros(pred_step+1, 7, 1, 1280)
-                c = contexts[img][:6-pred_step]
-                p = self.Wk[pred_step](c)
+            for step in range(self.pred_steps):
+                zeros = torch.zeros(step+1, 7, 1, 1280).to(self.device)
+                c = contexts[img][:6-step]
+                p = self.Wk[step](c)
                 p = torch.cat([zeros, p]) # 7 * 7 * 1 * 1280
 
                 step_preds = torch.cat([step_preds, p.view(1,7,7,1,1280)], 0) # step_preds = pred_steps * 7 * 7 * 1 * 1280

@@ -104,6 +104,7 @@ class PetImagesHandler():
         plt.show()
 
 
+# Iterator to generate batches of unlabelled data
 class PetImagesCPCHandler(PetImagesHandler):
 
     def __init__(self, batch_size):
@@ -114,7 +115,7 @@ class PetImagesCPCHandler(PetImagesHandler):
         self.n_batches = len(self.petImagesUnlabelled) // batch_size
 
         self.n = 0
-        self.perm = np.random.permutation(len(self.petImagesUnlabelled))
+        self.perm = []
 
     def __len__(self):
         return self.n_batches
@@ -123,21 +124,24 @@ class PetImagesCPCHandler(PetImagesHandler):
         return self
 
     def __next__(self):
+        # If it is the first iteration generate random permutation of data
+        if self.n == 0:
+            self.perm = np.random.permutation(len(self.petImagesUnlabelled))
+
         if self.n < self.n_batches:
             index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
 
             batch = self.petImagesUnlabelled[index]
-            batch = batch / 255.0
             batch = torch.tensor(batch).view(self.batch_size, 7, 7, 1, 64, 64)
+            batch = batch / 255.0
 
             self.n += 1
+
+            return batch
         else:
-            # recreate self.perm for next iteration
-            self.perm = np.random.permutation(len(self.petImagesUnlabelled))
             self.n = 0
             raise StopIteration
         
-        return batch 
 
 
 
