@@ -37,7 +37,7 @@ class MobileNetV2(nn.Module):
 
 class CDC(nn.Module):
 
-    def __init__(self, batch_size, pred_steps):
+    def __init__(self, batch_size=5, pred_steps=5):
         super().__init__()
 
         self.device = torch.device("cuda:0")
@@ -50,6 +50,8 @@ class CDC(nn.Module):
         self.enc = models.mobilenet_v2()
         # Modify for one channel input
         self.enc.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
+        # Change last activation function from ReLU6 to Hardtanh
+        self.enc.features[18][2] = nn.Hardtanh()
         # Delete classifier
         # Requires forward function to be called as: self.enc.features(x).mean([2, 3])
         # Outputs a 1280D Vector
@@ -108,7 +110,7 @@ class CDC(nn.Module):
             for step in range(self.pred_steps):
                 zeros = torch.zeros(step+1, 7, 1, 1280).to(self.device)
                 c = contexts[img][:6-step]
-                p = self.Wk[step](c)
+                p = F.sigmoid(self.Wk[step](c))
                 p = torch.cat([zeros, p]) # 7 * 7 * 1 * 1280
 
                 step_preds = torch.cat([step_preds, p.view(1,7,7,1,1280)], 0) # step_preds = pred_steps * 7 * 7 * 1 * 1280
@@ -118,3 +120,6 @@ class CDC(nn.Module):
         return encodings, preds
 
 
+if __name__ == "__main__":
+    net = CDC(5,5)
+    print(net)

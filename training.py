@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
@@ -12,6 +13,9 @@ def info_nce(encodings, predictions, set_size):
     total_loss = torch.tensor([0.0]).to(device)
     batch_size = predictions.shape[0]
     pred_steps = predictions.shape[1]
+    
+    # Predicted Encoding dot product will be the first element
+    target = torch.tensor([0]).to(device)
 
     for img in range(batch_size):
         for step in range(pred_steps):
@@ -23,7 +27,7 @@ def info_nce(encodings, predictions, set_size):
                     target_encoding = encodings[img][row][col][0]
                     predicted_encoding = predictions[img][step][row][col][0]
 
-                    # Dot Products to be softmaxed then cross-entropied
+                    # Find dot products of predicted_encoding and encodings from other images
                     dots = torch.tensor([]).to(device)
                     predicted_dot = torch.dot(predicted_encoding, target_encoding).view(1)
                     dots = torch.cat([dots, predicted_dot], 0)
@@ -44,36 +48,53 @@ def info_nce(encodings, predictions, set_size):
                         dots = torch.cat([dots, other_dot], 0)
 
                         n += 1
-
-                    sm = F.softmax(dots, dim=0)
-                    target = torch.eye(set_size)[0].to(device)
-                    loss = F.binary_cross_entropy_with_logits(sm, target)
+                    
+                    loss = -1 * F.log_softmax(dots, dim=0)[0]
                     total_loss += loss
 
     print(predicted_encoding)
     print(target_encoding)
     print(other_encoding)
-    return total_loss
+
+    # return sum of loss per image
+    return total_loss / batch_size
 
 if __name__ == "__main__":
     device = torch.device("cuda:0")
     batch_size = 5
+    pred_steps = 5
+    set_size = 5
 
     # Initialise data handler, network and optimizer
     data = PetImagesCPCHandler(batch_size=batch_size)
-    net = CDC(batch_size=batch_size, pred_steps=5).to(device)
+    net = CDC(batch_size=batch_size, pred_steps=pred_steps).to(device)
     optimizer = optim.Adam(net.parameters(), lr=0.01)
 
     h = net.init_hidden().to(device)
 
     for batch in data:
         enc, pred = net(batch.to(device), h)
-        loss = info_nce(enc, pred, 1)
+        loss = info_nce(enc, pred, set_size=set_size)
         loss.backward()
         optimizer.step()
 
         print(loss)
-        print("\n\n")
+        print()
+        print()
+
+# Observations:
+# Previously the last output of MobileNetV2 was a RELU6 function
+# What this meant was that the predictor learnt to maximise all values which would increase dot product and decrease loss
+# To counter this, I have changed the last activation function of the encoder to a hardtanh so that positives and negatives are involved
+
+# What now happened was that the predictor learnt to correctly determine pos/neg and then maximised the values
+# To address this I introduced a sigmoid function to the predictor
+
+# Now it is just zeroing the prediction...
+
+
+
+    
         
 
 
