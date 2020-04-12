@@ -8,9 +8,10 @@ from tqdm import tqdm
 from models import CDC
 from data_handlers import PetImagesCPCHandler
 
+PATH = "./TrainedModels/trained_cpc_encoder"
+device = torch.device("cuda:0")
+
 if __name__ == "__main__":
-    PATH = "./TrainedModels/trained_cpc_encoder"
-    device = torch.device("cuda:0")
     batch_size = 5
     pred_steps = 1
     set_size = 5

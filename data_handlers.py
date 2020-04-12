@@ -79,17 +79,18 @@ class PetImagesHandler():
 
     # Get labelled data for supervised learning
     def get_labelled_data(self, proportion):
-        np.random.shuffle(self.pet_images_labelled)
-        extract_length = proportion * len(self.pet_images_labelled)
-        pet_images_labelled_extract = self.pet_images_labelled[:extract_length]
+        self.load_labelled()
+        if proportion <= 0 or proportion > 1:
+            raise ValueError("0< proportion <= 1")
 
-        x = torch.Tensor([i[0] for i in pet_images_labelled_extract]).view(-1, self.IMG_SIZE, self.IMG_SIZE)
+        np.random.shuffle(self.pet_images_labelled)
+
+        x = torch.Tensor([i[0] for i in self.pet_images_labelled]).view(-1, self.IMG_SIZE, self.IMG_SIZE)
         X = x / 255.0
-        y = torch.Tensor([i[1] for i in pet_images_labelled_extract])
+        y = torch.Tensor([i[1] for i in self.pet_images_labelled])
 
         # seperate training and test data
-        VAL_PCT = 0.05
-        val_size = int(len(X)*VAL_PCT)
+        val_size = int(len(X)*proportion)
         train_X = X[:-val_size]
         train_y = y[:-val_size]
         test_X = X[-val_size:]
@@ -145,6 +146,8 @@ class PetImagesCPCHandler(PetImagesHandler):
             raise StopIteration
         
 
+if __name__ == "__main__":
+    handler = PetImagesHandler()
 
 
 

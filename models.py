@@ -146,8 +146,9 @@ class CDC(nn.Module):
         return loss_per_pred, acc
 
 class CDC_encoder(nn.Module):
-    def __init__(self):
+    def __init__(self, classifier = False):
         super().__init__()
+        self.classifier = classifier
 
         self.enc = models.mobilenet_v2()
         
@@ -157,15 +158,18 @@ class CDC_encoder(nn.Module):
         # Change last activation function from ReLU6 to Hardtanh
         self.enc.features[18][2] = nn.Hardtanh()
 
-        # Delete classifier
-        # Requires forward function to be called as: self.enc.features(x).mean([2, 3])
-        # Outputs a 1280D Vector
-        del self.enc.classifier
+        # Modify Classifier - 2 outputs + remove dropout
+        self.enc.classifier[1] = nn.Linear(in_features=1280, out_features=2, bias=True)
+        del self.enc.classifier[0]
 
     def forward(self, x):
-        return self.enc.features(x).mean([2, 3])
-
+        # If it's acting as a classifier include the classifier layer
+        if self.classifier:
+            return self.enc(x)
+        # Otherwise just act as an encoder
+        else:
+            return self.enc.features(x).mean([2, 3])
 
 if __name__ == "__main__":
-    net = CDC()
+    net = CDC_encoder()
     print(net)
