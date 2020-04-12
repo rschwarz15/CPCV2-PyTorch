@@ -37,21 +37,25 @@ class MobileNetV2(nn.Module):
 
 class CDC(nn.Module):
 
-    def __init__(self, batch_size=5, pred_steps=5):
+    def __init__(self, batch_size=5, pred_steps=5, set_size=5):
         super().__init__()
 
         self.device = torch.device("cuda:0")
         self.batch_size = batch_size
         self.pred_steps = pred_steps
+        self.set_size = set_size
         self.hidden_size = 256
         self.pred_size = 1280
 
         # Define Encoder Network (Reshaped MobileNetV2)
         self.enc = models.mobilenet_v2()
+        
         # Modify for one channel input
         self.enc.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
+
         # Change last activation function from ReLU6 to Hardtanh
         self.enc.features[18][2] = nn.Hardtanh()
+
         # Delete classifier
         # Requires forward function to be called as: self.enc.features(x).mean([2, 3])
         # Outputs a 1280D Vector
@@ -101,25 +105,66 @@ class CDC(nn.Module):
 
             contexts = torch.cat([contexts, img_contexts.view(1,6,7,1,256)], 0) # contexts = batch_size * 6 * 7 * 1 * 256
 
-        ### FIND ALL PREDICTED VECTORS
-        # For each image and prediction length build a 7x7 tensor of predictions, pad with rows of zeros
-        preds = torch.tensor([]).to(self.device)
+        ### FIND ALL PREDICTED VECTORS AND DETERMINE LOSS
+        total_loss = 0
+        number_preds = 0
+        number_correct = 0
+
+        # For each prediction find the loss
         for img in range(self.batch_size):
-            step_preds = torch.tensor([]).to(self.device)
-
             for step in range(self.pred_steps):
-                zeros = torch.zeros(step+1, 7, 1, 1280).to(self.device)
-                c = contexts[img][:6-step]
-                p = F.sigmoid(self.Wk[step](c))
-                p = torch.cat([zeros, p]) # 7 * 7 * 1 * 1280
+                for row in range(6-step):
+                    for col in range(7):
+                        c = contexts[img][row][col]
+                        p = self.Wk[step](c)
+                        p = F.hardtanh(p)[0]
+                        
+                        target_encoding = encodings[img][row][col][0]
 
-                step_preds = torch.cat([step_preds, p.view(1,7,7,1,1280)], 0) # step_preds = pred_steps * 7 * 7 * 1 * 1280
+                        # Calculate dot products with target_encoding and other_encodings
+                        dots = torch.tensor([]).to(self.device)
+                        predicted_dot = torch.dot(p, target_encoding).view(1)
+                        dots = torch.cat([dots, predicted_dot], 0)
 
-            preds = torch.cat([preds, step_preds.view(1,self.pred_steps,7,7,1,1280)], 0) # preds = batch_size * pred_steps * 7 * 7 * 1 * 1280
+                        # Get set_size - 1 encodings from other images
+                        n = 0
+                        while n < self.set_size - 1:
+                            other_img = np.random.randint(self.batch_size)
 
-        return encodings, preds
+                            # Don't get encodings from the same image
+                            # Might change this to allow different encodings from same image?
+                            if other_img == img:
+                                continue
+                            
+                            other_encoding = encodings[img][np.random.randint(7)][np.random.randint(7)][0]
+                            other_dot = torch.dot(p, other_encoding).view(1)
+                            dots = torch.cat([dots, other_dot], 0)
+
+                            n += 1
+                        
+                        # Calculate loss
+                        cross_entropy_loss = -1 * F.log_softmax(dots, dim=0)[0]        
+                        total_loss += cross_entropy_loss
+
+                        # Calculate accuracy
+                        if torch.argmax(dots) == 0:
+                            number_correct += 1
+
+                        number_preds += 1
+
+        loss_per_pred = total_loss / number_preds
+        acc = number_correct / number_preds
+        print(p)
+        print(target_encoding)
+        print(other_encoding)
+        # print(dots)
+        # print(loss_per_pred)
+        # print(acc)
+        # print()
+        # print()
+        return loss_per_pred, acc
 
 
 if __name__ == "__main__":
-    net = CDC(5,5)
+    net = CDC()
     print(net)

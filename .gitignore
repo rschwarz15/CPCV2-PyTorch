@@ -4,3 +4,4 @@
 # Directories to ignore
 PetImages/
 __pycache__/
+Observations/
