@@ -12,8 +12,8 @@ class PetImagesHandler():
     DOGS = "PetImages/Dog"
     LABELS = {CATS: 0, DOGS: 1}
     IMG_SIZE = 256
-    petImagesLabelled = []
-    petImagesUnlabelled = []
+    pet_images_labelled = []
+    pet_images_unlabelled = []
     catCount = 0
     dogCount = 0
     normalise = True
@@ -37,7 +37,7 @@ class PetImagesHandler():
                     lbl = np.eye(2)[self.LABELS[label]]
 
                     # Create labelled data
-                    self.petImagesLabelled.append([np.array(img), lbl])
+                    self.pet_images_labelled.append([np.array(img), lbl])
 
                     # Create unlabelled data
                     self.make_patches(img)
@@ -50,8 +50,8 @@ class PetImagesHandler():
                 except Exception as e:
                     pass
 
-        np.save("petImagesLabelled.npy", self.petImagesLabelled)
-        np.save("petImagesUnlabelled.npy", self.petImagesUnlabelled)
+        np.save("petImagesLabelled.npy", self.pet_images_labelled)
+        np.save("petImagesUnlabelled.npy", self.pet_images_unlabelled)
         print(f'Cats: {self.catCount}')
         print(f'Dogs: {self.dogCount}')
 
@@ -66,24 +66,26 @@ class PetImagesHandler():
                 row_patches.append(patch)
             processed_img.append(row_patches)
 
-        self.petImagesUnlabelled.append(np.array(processed_img))
+        self.pet_images_unlabelled.append(np.array(processed_img))
 
     # Load the labelled data from npy file into memory
     def load_labelled(self):
-        self.petImagesLabelled = np.load("petImagesLabelled.npy", allow_pickle=True)
+        self.pet_images_labelled = np.load("petImagesLabelled.npy", allow_pickle=True)
    
     # Load the unlabelled data from npy file into memory
     # This is the 7x7 patches for CPC
     def load_unlabelled(self):
-        self.petImagesUnlabelled = np.load("petImagesUnlabelled.npy", allow_pickle=True)
+        self.pet_images_unlabelled = np.load("petImagesUnlabelled.npy", allow_pickle=True)
 
     # Get labelled data for supervised learning
-    def get_labelled_data(self):
-        np.random.shuffle(self.petImagesLabelled)
+    def get_labelled_data(self, proportion):
+        np.random.shuffle(self.pet_images_labelled)
+        extract_length = proportion * len(self.pet_images_labelled)
+        pet_images_labelled_extract = self.pet_images_labelled[:extract_length]
 
-        x = torch.Tensor([i[0] for i in self.petImagesLabelled]).view(-1, self.IMG_SIZE, self.IMG_SIZE)
+        x = torch.Tensor([i[0] for i in pet_images_labelled_extract]).view(-1, self.IMG_SIZE, self.IMG_SIZE)
         X = x / 255.0
-        y = torch.Tensor([i[1] for i in self.petImagesLabels])
+        y = torch.Tensor([i[1] for i in pet_images_labelled_extract])
 
         # seperate training and test data
         VAL_PCT = 0.05
@@ -99,8 +101,8 @@ class PetImagesHandler():
     def show_random_image(self):
         self.load_labelled()
 
-        randomImage = np.random.randint(len(self.petImagesLabelled))
-        plt.imshow(self.petImagesLabelled[randomImage][0], cmap="gray")
+        randomImage = np.random.randint(len(self.pet_images_labelled))
+        plt.imshow(self.pet_images_labelled[randomImage][0], cmap="gray")
         plt.show()
 
 
@@ -112,7 +114,7 @@ class PetImagesCPCHandler(PetImagesHandler):
         self.load_unlabelled()
 
         self.batch_size = batch_size
-        self.n_batches = len(self.petImagesUnlabelled) // batch_size
+        self.n_batches = len(self.pet_images_unlabelled) // batch_size
 
         self.n = 0
         self.perm = []
@@ -126,12 +128,12 @@ class PetImagesCPCHandler(PetImagesHandler):
     def __next__(self):
         # If it is the first iteration generate random permutation of data
         if self.n == 0:
-            self.perm = np.random.permutation(len(self.petImagesUnlabelled))
+            self.perm = np.random.permutation(len(self.pet_images_unlabelled))
 
         if self.n < self.n_batches:
             index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
 
-            batch = self.petImagesUnlabelled[index]
+            batch = self.pet_images_unlabelled[index]
             batch = torch.tensor(batch).view(self.batch_size, 7, 7, 1, 64, 64)
             batch = batch / 255.0
 

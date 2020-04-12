@@ -48,18 +48,7 @@ class CDC(nn.Module):
         self.pred_size = 1280
 
         # Define Encoder Network (Reshaped MobileNetV2)
-        self.enc = models.mobilenet_v2()
-        
-        # Modify for one channel input
-        self.enc.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
-
-        # Change last activation function from ReLU6 to Hardtanh
-        self.enc.features[18][2] = nn.Hardtanh()
-
-        # Delete classifier
-        # Requires forward function to be called as: self.enc.features(x).mean([2, 3])
-        # Outputs a 1280D Vector
-        del self.enc.classifier
+        self.enc = CDC_encoder()
 
         # Define Autoregressive Network
         self.ar = nn.GRU(self.pred_size, self.hidden_size, num_layers=1, bidirectional=False, batch_first=True)
@@ -80,7 +69,7 @@ class CDC(nn.Module):
         encodings = torch.tensor([]).to(self.device)
 
         for img in range(self.batch_size):
-            z = self.enc.features(x[img]).mean([2, 3]) # z = 49 * 1 * 1280
+            z = self.enc(x[img]) # z = 49 * 1 * 1280
             encodings = torch.cat([encodings, z.view(1,7,7,1,1280)], 0) # encodings = batch_size * 7 * 7 * 1 * 1280 
 
         ### FIND ALL CONTEXT VECTORS
@@ -154,15 +143,27 @@ class CDC(nn.Module):
 
         loss_per_pred = total_loss / number_preds
         acc = number_correct / number_preds
-        print(p)
-        print(target_encoding)
-        print(other_encoding)
-        # print(dots)
-        # print(loss_per_pred)
-        # print(acc)
-        # print()
-        # print()
         return loss_per_pred, acc
+
+class CDC_encoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.enc = models.mobilenet_v2()
+        
+        # Modify for one channel input
+        self.enc.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
+
+        # Change last activation function from ReLU6 to Hardtanh
+        self.enc.features[18][2] = nn.Hardtanh()
+
+        # Delete classifier
+        # Requires forward function to be called as: self.enc.features(x).mean([2, 3])
+        # Outputs a 1280D Vector
+        del self.enc.classifier
+
+    def forward(self, x):
+        return self.enc.features(x).mean([2, 3])
 
 
 if __name__ == "__main__":
