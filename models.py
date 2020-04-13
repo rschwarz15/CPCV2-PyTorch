@@ -187,8 +187,9 @@ class CPC_encoder(nn.Module):
                 mean = torch.mean(z, dim=0).view(1, 1280) # mean = 1 * 1280
 
                 img_mean_encodings = torch.cat([img_mean_encodings, mean], 0) # encodings = batch_size  * 1280 
-                            
-            return img_mean_encodings
+            
+            classification = self.enc.classifier(img_mean_encodings) # classification = batc_size * 2
+            return classification
 
         # ENCODER
         else:
@@ -199,5 +200,5 @@ device = torch.device("cuda:0")
 if __name__ == "__main__":
     x = torch.randn(5, 7, 7, 1, 64, 64).to(device)
     net = CPC_encoder(batch_size = 5, classifier=True).to(device)
-    result = net(x)
-    print(result.shape)
+    classification = net(x)
+    print(classification.shape)
