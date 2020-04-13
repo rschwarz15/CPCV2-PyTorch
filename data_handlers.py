@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 import torch
 
-class PetImagesHandler():
+class PetImages():
     CATS = "PetImages/Cat"
     DOGS = "PetImages/Dog"
     LABELS = {CATS: 0, DOGS: 1}
@@ -77,27 +77,6 @@ class PetImagesHandler():
     def load_patched(self):
         self.pet_images_patched = np.load("petImagesPatched.npy", allow_pickle=True)
 
-    # Get normal data for supervised learning
-    def get_normal_data(self, proportion):
-        self.load_normal()
-        if proportion <= 0 or proportion > 1:
-            raise ValueError("0< proportion <= 1")
-
-        np.random.shuffle(self.pet_images)
-
-        x = torch.Tensor([i[0] for i in self.pet_images]).view(-1, self.IMG_SIZE, self.IMG_SIZE)
-        X = x / 255.0
-        y = torch.Tensor([i[1] for i in self.pet_images])
-
-        # seperate training and test data
-        val_size = int(len(X)*proportion)
-        train_X = X[:-val_size]
-        train_y = y[:-val_size]
-        test_X = X[-val_size:]
-        test_y = y[-val_size:]
-
-        return train_X, train_y, test_X, test_y
-
     # Show a random image from the dataset   
     def show_random_image(self):
         self.load_normal()
@@ -107,8 +86,47 @@ class PetImagesHandler():
         plt.show()
 
 
+# Iterator to generate batches of normal data
+class PetImagesNormalHandler(PetImages):
+    def __init__(self, batch_size):
+        super().__init__()
+        self.load_normal()
+
+        self.batch_size = batch_size
+        self.n_batches = len(self.pet_images) // batch_size
+
+        self.n = 0
+        self.perm = []
+
+    def __len__(self):
+        return self.n_batches
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        # If it is the first iteration generate random permutation of data
+        if self.n == 0:
+            self.perm = np.random.permutation(len(self.pet_images))
+
+        if self.n < self.n_batches:
+            index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
+            batch = self.pet_images[index]
+
+            batchImg = torch.Tensor([i[0] for i in batch]).view(self.batch_size, 1, 256, 256)
+            batchImg = batchImg / 255.0
+            batchLbl = torch.Tensor([i[1] for i in batch])
+
+            self.n += 1
+
+            return batchImg, batchLbl
+
+        else:
+            self.n = 0
+            raise StopIteration
+
 # Iterator to generate batches of patched data
-class PetImagesCPCHandler(PetImagesHandler):
+class PetImagesCPCHandler(PetImages):
     def __init__(self, batch_size, include_labels=False):
         super().__init__()
         self.load_patched()
@@ -152,13 +170,12 @@ class PetImagesCPCHandler(PetImagesHandler):
         
 
 if __name__ == "__main__":
-    handler = PetImagesCPCHandler(batch_size=10, include_labels=True)
+    handler = PetImagesNormalHandler(batch_size=10)
 
     for batchImg, batchLbl in handler:
         print(batchImg.shape)
         print(batchLbl)
 
-        break
 
         
 
