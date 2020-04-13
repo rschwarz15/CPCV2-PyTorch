@@ -138,12 +138,12 @@ class PetImagesNormalHandler(PetImages):
             self.n = 0
             raise StopIteration
 
-    def test_batch(self, batch_size):
-        start = np.random.randint(self.test_data_len - batch_size)
+    def test_batch(self, size):
+        start = np.random.randint(self.test_data_len - size)
 
-        batch = self.test_data[start:start+batch_size]
+        batch = self.test_data[start:start+size]
 
-        batch_img = torch.Tensor([i[0] for i in batch]).view(self.batch_size, 1, 256, 256)
+        batch_img = torch.Tensor([i[0] for i in batch]).view(size, 1, 256, 256)
         batch_img = batch_img / 255.0
         batch_lbl = torch.Tensor([i[1] for i in batch])
 
@@ -204,12 +204,12 @@ class PetImagesCPCHandler(PetImages):
             self.n = 0
             raise StopIteration
 
-    def test_batch(self, batch_size):
-        start = np.random.randint(self.test_data_len - batch_size)
+    def test_batch(self, size):
+        start = np.random.randint(self.test_data_len - size)
 
-        batch = self.test_data[start:start+batch_size]
+        batch = self.test_data[start:start+size]
 
-        batch_img = torch.Tensor([i[0] for i in batch]).view(self.batch_size, 7, 7, 1, 64, 64)
+        batch_img = torch.Tensor([i[0] for i in batch]).view(size, 7, 7, 1, 64, 64)
         batch_img = batch_img / 255.0
         batch_lbl = torch.Tensor([i[1] for i in batch])
 
@@ -217,10 +217,9 @@ class PetImagesCPCHandler(PetImages):
         
 
 if __name__ == "__main__":
-    data = PetImagesNormalHandler(batch_size=10, train_proportion=0.1, test_proportion=0.05)
+    data = PetImagesCPCHandler(batch_size=10, train_proportion=0.1, test_proportion=0.05)
 
-    for batch_img, batch_lbl in tqdm(data):
-        pass
+    print(data.test_batch(5)[0].shape)
         
 
         

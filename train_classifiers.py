@@ -5,12 +5,8 @@ import torch.optim as optim
 
 import numpy as np
 from tqdm import tqdm
-from models import CDC_encoder, MobileNetV2
-from data_handlers import PetImagesHandler
-
-PATH = "./TrainedModels/"
-IMG_SIZE = 256
-device = torch.device("cuda:0")
+from models import CPC_encoder, MobileNetV2
+from data_handlers import PetImagesCPCHandler, PetImagesNormalHandler
 
 # Run batch test, return accuracy and loss
 def fwd_pass(X, y, train=False):
@@ -37,46 +33,70 @@ def fwd_pass(X, y, train=False):
 
     return loss, acc 
 
-# Test the network on a random batch of test data
-def test(size=32):
-    start = np.random.randint(len(test_X) - size)
-    X, y = test_X[start:start+size], test_y[start:start+size]
+# Train net
+def train(data_handler, epochs, batch_size):
+    for epoch in range(epochs):
 
-    #X, y = test_X[:size], test_y[:size]
-    val_acc, val_loss = fwd_pass(X.view(-1, 1, IMG_SIZE, IMG_SIZE).to(device), y.to(device))
-    return val_acc, val_loss
+        for batch_img, batch_lbl in tqdm(data_handler):
+            acc, loss = fwd_pass(batch_img.to(device), batch_lbl.to(device), train=True)    
 
-# Train the network
-def train(EPOCHS, log=True):
-    BATCH_SIZE = 32
+        print(f"{epoch},{round(float(acc),2)},{round(float(loss), 4)}")
 
-    for epoch in range(EPOCHS):
-        for i in tqdm(range(0, len(train_X), BATCH_SIZE)):
-            batch_X = train_X[i:i+BATCH_SIZE].view(-1,1,IMG_SIZE,IMG_SIZE).to(device)
-            batch_y = train_y[i:i+BATCH_SIZE].to(device)
-
-            acc, loss = fwd_pass(batch_X, batch_y, train=True)
-
-        val_acc, val_loss = test(size=BATCH_SIZE)
-        print(f"{epoch},{round(float(acc),2)},{round(float(loss), 4)},{round(float(val_acc),2)},{round(float(val_loss),4)}")
-
+        # print(f"{epoch},\
+        #         {round(float(acc),2)},{round(float(loss), 4)},\
+        #         {round(float(val_acc),2)},{round(float(val_loss),4)}")
 
 if __name__ == "__main__":
-    # Load the network
-    net = CDC_encoder(classifier=True).to(device)
-    net.load_state_dict(torch.load(PATH + "trained_cpc_encoder", map_location=device))
+    PATH = "./TrainedModels/"
+    IMG_SIZE = 256
+    device = torch.device("cuda:0")
 
-    # Freeze encoder layers
-    
+    train_selection = 1
+    epochs = 3
 
-    data_handler = PetImagesHandler()
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
-    loss_function = nn.MSELoss()
+    if train_selection == 0:
+        print("Training CDC Encoder")
+        batch_size = 16  
 
-    train_X, train_y, test_X, test_y = data_handler.get_labelled_data(0.1)
+        # Load the network
+        net = CPC_encoder(batch_size=batch_size, classifier=True).to(device)
+        net.load_state_dict(torch.load(PATH + "trained_cpc_encoder", map_location=device))
+
+        # Freeze encoder layers
+        # ...
+
+        # Intitialise data handler, optimizer and loss_function
+        data_handler = PetImagesCPCHandler(batch_size=batch_size,
+                                            include_labels=True,
+                                            train_proportion=0.1,
+                                            test_proportion=0.05)
+        optimizer = optim.Adam(net.parameters(), lr=0.001)
+        loss_function = nn.MSELoss()
+
+        # Train CPC encoder for classification
+        train(10)
+    elif train_selection == 1:
+        print("Training MobileNet")
+        batch_size = 64  
+
+        # Load the network
+        net = MobileNetV2().to(device)
+
+        # Intitialise data handler, optimizer and loss_function
+        data_handler = PetImagesNormalHandler(batch_size=batch_size, 
+                                                train_proportion=0.1, 
+                                                test_proportion=0.05)
+        optimizer = optim.Adam(net.parameters(), lr=0.001)
+        loss_function = nn.MSELoss()
+
+        # Train MobileNet
+        train(data_handler=data_handler, epochs=epochs, batch_size=batch_size)
+
+# TO DO:
+# Complete training of cdc encoder + classifer
+# include validation accuracy and loss
 
 
-    #train(10)
     
 
 

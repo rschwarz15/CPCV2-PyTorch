@@ -33,8 +33,8 @@ class MobileNetV2(nn.Module):
         self.model.classifier[1] = nn.Linear(in_features=1280, out_features=2, bias=True)
 
     def forward(self, x):   
-        x = self.model.features(x).mean([2, 3])
-        return x
+        x = self.model(x)
+        return F.softmax(x, dim=1)
 
 
 class CPC(nn.Module):
@@ -189,7 +189,7 @@ class CPC_encoder(nn.Module):
                 img_mean_encodings = torch.cat([img_mean_encodings, mean], 0) # encodings = batch_size  * 1280 
             
             classification = self.enc.classifier(img_mean_encodings) # classification = batc_size * 2
-            return classification
+            return F.softmax(classification, dim=1)
 
         # ENCODER
         else:
@@ -198,7 +198,12 @@ class CPC_encoder(nn.Module):
 device = torch.device("cuda:0")
 
 if __name__ == "__main__":
-    x = torch.randn(5, 7, 7, 1, 64, 64).to(device)
-    net = CPC_encoder(batch_size = 5, classifier=True).to(device)
+    #x = torch.randn(5, 7, 7, 1, 64, 64).to(device)
+    #net = CPC_encoder(batch_size = 5, classifier=True).to(device)
+
+    x = torch.randn(5, 1, 256, 256).to(device)
+    net = models.mobilenet_v2(num_channels=1,num_classes=10)
+    print(net)
+
     classification = net(x)
-    print(classification.shape)
+    print(classification)
