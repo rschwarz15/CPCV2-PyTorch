@@ -37,9 +37,9 @@ class MobileNetV2(nn.Module):
         return x
 
 
-class CDC(nn.Module):
+class CPC(nn.Module):
 
-    def __init__(self, batch_size=5, pred_steps=5, set_size=5):
+    def __init__(self, batch_size, pred_steps, set_size):
         super().__init__()
 
         self.device = torch.device("cuda:0")
@@ -50,7 +50,7 @@ class CDC(nn.Module):
         self.pred_size = 1280
 
         # Define Encoder Network (Reshaped MobileNetV2)
-        self.enc = CDC_encoder()
+        self.enc = CPC_encoder(batch_size=batch_size)
 
         # Define Autoregressive Network
         self.ar = nn.GRU(self.pred_size, self.hidden_size, num_layers=1, bidirectional=False, batch_first=True)
@@ -62,9 +62,8 @@ class CDC(nn.Module):
         return torch.zeros(1, 1, self.hidden_size)
 
     def forward(self, x, hidden):
-        # x = batch_size * 7 * 7 * 1 * 64 * 64
-        # Reshape x so that all patches of an image can be encoded at once
-        x = x.view(self.batch_size, 49, 1, 64, 64) 
+        # input x = batch_size * 7 * 7 * 1 * 64 * 64
+        x = x.view(self.batch_size, 49, 1, 64, 64) # x = batch_size * 49 * 1 * 64 * 64
 
         ### FIND ALL ENCODING VECTORS
         # For each image find encoding vector for all 49 patches
@@ -152,9 +151,12 @@ class CDC(nn.Module):
         return cross_entropy_loss, correct
 
 
-class CDC_encoder(nn.Module):
-    def __init__(self, classifier = False):
+class CPC_encoder(nn.Module):
+    def __init__(self, batch_size, classifier = False):
         super().__init__()
+
+        self.device = torch.device("cuda:0")
+        self.batch_size = batch_size
         self.classifier = classifier
 
         self.enc = models.mobilenet_v2()
@@ -170,14 +172,32 @@ class CDC_encoder(nn.Module):
         del self.enc.classifier[0]
 
     def forward(self, x):
-        # If it's acting as a classifier include the classifier layer
+        # ENCODER + CLASSIFIER
         if self.classifier:
-            return self.enc(x)
-        # Otherwise just act as an encoder
+            # input x = batch_size * 7 * 7 * 1 * 64 * 64
+            x = x.view(self.batch_size, 49, 1, 64, 64) # x = batch_size * 49 * 1 * 64 * 64
+
+            # For each image find the mean encoding vector of all 49 patches
+            img_mean_encodings = torch.tensor([]).to(self.device)
+
+            for img in range(self.batch_size):
+                z = self.enc.features(x[img]).mean([2, 3]).view(49, 1280) # z = 49 * 1280
+
+                # mean the 7x7 encodings
+                mean = torch.mean(z, dim=0).view(1, 1280) # mean = 1 * 1280
+
+                img_mean_encodings = torch.cat([img_mean_encodings, mean], 0) # encodings = batch_size  * 1280 
+                            
+            return img_mean_encodings
+
+        # ENCODER
         else:
             return self.enc.features(x).mean([2, 3])
    
+device = torch.device("cuda:0")
 
 if __name__ == "__main__":
-    net = CDC_encoder()
-    print(net)
+    x = torch.randn(5, 7, 7, 1, 64, 64).to(device)
+    net = CPC_encoder(batch_size = 5, classifier=True).to(device)
+    result = net(x)
+    print(result.shape)
