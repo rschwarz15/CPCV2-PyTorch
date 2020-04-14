@@ -39,13 +39,13 @@ class MobileNetV2(nn.Module):
 
 class CPC(nn.Module):
 
-    def __init__(self, batch_size, pred_steps, set_size):
+    def __init__(self, batch_size, pred_steps, neg_sample):
         super().__init__()
 
         self.device = torch.device("cuda:0")
         self.batch_size = batch_size
         self.pred_steps = pred_steps
-        self.set_size = set_size
+        self.neg_sample = neg_sample
         self.hidden_size = 256
         self.pred_size = 1280
 
@@ -123,9 +123,9 @@ class CPC(nn.Module):
         predicted_dot = torch.dot(pred, target_encoding).view(1)
         dots = torch.cat([dots, predicted_dot], 0)
 
-        # Get set_size - 1 other_encodings from other images
+        # Get neg_sample other_encodings from other images
         n = 0
-        while n < self.set_size - 1:
+        while n < self.neg_sample:
             other_img = np.random.randint(self.batch_size)
 
             # Don't get encodings from the same image
@@ -186,9 +186,9 @@ class CPC_encoder(nn.Module):
                 # mean the 7x7 encodings
                 mean = torch.mean(z, dim=0).view(1, 1280) # mean = 1 * 1280
 
-                img_mean_encodings = torch.cat([img_mean_encodings, mean], 0) # encodings = batch_size  * 1280 
+                img_mean_encodings = torch.cat([img_mean_encodings, mean], 0) # encodings = batch_size * 1280 
             
-            classification = self.enc.classifier(img_mean_encodings) # classification = batc_size * 2
+            classification = self.enc.classifier(img_mean_encodings) # classification = batch_size * 2
             return F.softmax(classification, dim=1)
 
         # ENCODER

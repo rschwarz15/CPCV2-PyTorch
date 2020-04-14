@@ -8,17 +8,17 @@ import matplotlib.pyplot as plt
 import torch
 
 class PetImages():
-    CATS = "PetImages/Cat"
-    DOGS = "PetImages/Dog"
-    LABELS = {CATS: 0, DOGS: 1}
-    IMG_SIZE = 256
-    pet_images = []
-    pet_images_patched = []
-    catCount = 0
-    dogCount = 0
-    normalise = True
-
     def __init__(self):
+        CATS = "PetImages/Cat"
+        DOGS = "PetImages/Dog"
+        LABELS = {CATS: 0, DOGS: 1}
+        IMG_SIZE = 256
+        pet_images = []
+        pet_images_patched = []
+        catCount = 0
+        dogCount = 0
+        normalise = True
+
         # Make or load data
         if not path.exists("petImages.npy") or not path.exists("petImagesPatched.npy"):
             resp = input("Make the data (Y/N): ")
@@ -148,6 +148,7 @@ class PetImagesNormalHandler(PetImages):
         batch_lbl = torch.Tensor([i[1] for i in batch])
 
         return batch_img, batch_lbl
+
 
 # Iterator to generate batches of patched data
 # Defualt input parameters are for cpc training using all data unlabelled

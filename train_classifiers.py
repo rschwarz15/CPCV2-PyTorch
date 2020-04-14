@@ -33,6 +33,7 @@ def fwd_pass(X, y, train=False):
 
     return loss, acc 
 
+
 # Train net
 def train(data_handler, epochs, batch_size):
     for epoch in range(epochs):
@@ -40,11 +41,19 @@ def train(data_handler, epochs, batch_size):
         for batch_img, batch_lbl in tqdm(data_handler):
             acc, loss = fwd_pass(batch_img.to(device), batch_lbl.to(device), train=True)    
 
-        print(f"{epoch},{round(float(acc),2)},{round(float(loss), 4)}")
+        val_acc, val_loss = test(size=32)
 
-        # print(f"{epoch},\
-        #         {round(float(acc),2)},{round(float(loss), 4)},\
-        #         {round(float(val_acc),2)},{round(float(val_loss),4)}")
+        print(f"Epoch: {epoch}\n"
+                f"Train: {round(float(acc),2)}, {round(float(loss), 4)}\n"
+                f"Test:  {round(float(val_acc),2)}, {round(float(val_loss),4)}")
+
+
+def test(size):
+        test_img, test_lbl = data_handler.test_batch(size=size)
+        val_acc, val_loss = fwd_pass(test_img.to(device,), test_lbl.to(device))
+
+        return val_acc, val_loss
+
 
 if __name__ == "__main__":
     PATH = "./TrainedModels/"
@@ -52,7 +61,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0")
 
     train_selection = 1
-    epochs = 3
+    epochs = 20
 
     if train_selection == 0:
         print("Training CDC Encoder")
@@ -63,38 +72,37 @@ if __name__ == "__main__":
         net.load_state_dict(torch.load(PATH + "trained_cpc_encoder", map_location=device))
 
         # Freeze encoder layers
-        # ...
-
+        for name, param in net.named_parameters():
+            if "enc.classifier" in name:
+                param.requires_grad = False
+        
         # Intitialise data handler, optimizer and loss_function
         data_handler = PetImagesCPCHandler(batch_size=batch_size,
                                             include_labels=True,
                                             train_proportion=0.1,
                                             test_proportion=0.05)
-        optimizer = optim.Adam(net.parameters(), lr=0.001)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=0.001)
         loss_function = nn.MSELoss()
 
         # Train CPC encoder for classification
-        train(10)
+        train(data_handler=data_handler, epochs=epochs, batch_size=batch_size)
     elif train_selection == 1:
         print("Training MobileNet")
-        batch_size = 64  
+        batch_size = 32  
 
         # Load the network
         net = MobileNetV2().to(device)
 
         # Intitialise data handler, optimizer and loss_function
         data_handler = PetImagesNormalHandler(batch_size=batch_size, 
-                                                train_proportion=0.1, 
+                                                train_proportion=0.95, 
                                                 test_proportion=0.05)
-        optimizer = optim.Adam(net.parameters(), lr=0.001)
+        optimizer = optim.Adam(net.parameters(), lr=0.1)
         loss_function = nn.MSELoss()
 
         # Train MobileNet
         train(data_handler=data_handler, epochs=epochs, batch_size=batch_size)
 
-# TO DO:
-# Complete training of cdc encoder + classifer
-# include validation accuracy and loss
 
 
     

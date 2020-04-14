@@ -5,7 +5,7 @@ import torch.optim as optim
 
 import numpy as np
 from tqdm import tqdm
-from models import CDC
+from models import CPC
 from data_handlers import PetImagesCPCHandler
 
 PATH = "./TrainedModels/trained_cpc_encoder"
@@ -13,14 +13,14 @@ device = torch.device("cuda:0")
 
 if __name__ == "__main__":
     batch_size = 5
-    pred_steps = 1
-    set_size = 5
+    pred_steps = 3
+    neg_sample = 10
 
     # Initialise data handler, network and optimizer
     data = PetImagesCPCHandler(batch_size=batch_size)
-    net = CDC(batch_size=batch_size, 
+    net = CPC(batch_size=batch_size, 
               pred_steps=pred_steps, 
-              set_size=set_size
+              neg_sample=neg_sample
              ).to(device)
     optimizer = optim.Adam(net.parameters(), lr=2e-4)
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
         print(f'iteration {i}: loss = {float(loss)}, acc={acc}')
 
-        if i == 10:
+        if i == 100:
             break
     
     # Save the encoder
