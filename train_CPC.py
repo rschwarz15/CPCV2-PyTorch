@@ -14,13 +14,12 @@ device = torch.device("cuda:0")
 if __name__ == "__main__":
     batch_size = 5
     pred_steps = 3
-    neg_sample = 10
+    neg_samples = 10
 
     # Initialise data handler, network and optimizer
     data = PetImagesCPCHandler(batch_size=batch_size)
-    net = CPC(batch_size=batch_size, 
-              pred_steps=pred_steps, 
-              neg_sample=neg_sample
+    net = CPC(pred_steps=pred_steps, 
+              neg_samples=neg_samples
              ).to(device)
     optimizer = optim.Adam(net.parameters(), lr=2e-4)
 

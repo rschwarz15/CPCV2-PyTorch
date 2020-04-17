@@ -120,7 +120,7 @@ class PetImagesNormalHandler(PetImages):
     def __next__(self):
         # If it is the first iteration generate random permutation of data
         if self.n == 0:
-            self.perm = np.random.permutation(len(self.train_data))
+            self.perm = np.random.permutation(self.train_data_len)
 
         if self.n < self.n_batches:
             index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
@@ -184,7 +184,7 @@ class PetImagesCPCHandler(PetImages):
     def __next__(self):
         # If it is the first iteration generate random permutation of data
         if self.n == 0:
-            self.perm = np.random.permutation(len(self.train_data))
+            self.perm = np.random.permutation(self.train_data_len)
 
         if self.n < self.n_batches:
             index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
