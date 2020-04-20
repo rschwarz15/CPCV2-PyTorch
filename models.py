@@ -98,10 +98,9 @@ class CPC(nn.Module):
                 for row in range(6-step):
                     for col in range(7):
                         c = contexts[img][row][col]
-                        pred = self.Wk[step](c)
-                        pred = F.hardtanh(pred)[0]
+                        pred_encoding = self.Wk[step](c)[0]
                         
-                        loss, correct = self.info_nce_loss(pred, encodings, img, row, col)
+                        loss, correct = self.info_nce_loss(pred_encoding, encodings, img, row, col)
                         
                         total_loss += loss
                         number_correct += correct
@@ -111,28 +110,46 @@ class CPC(nn.Module):
         acc = number_correct / number_preds
         return loss_per_pred, acc
 
-    def info_nce_loss(self, pred, encodings, img, row, col):
+    def info_nce_loss(self, pred_encoding, encodings, img, row, col):
         batch_size = encodings.shape[0]
 
         target_encoding = encodings[img][row][col][0]
 
         # Calculate dot products with target_encoding and other_encodings
         dots = torch.tensor([]).to(self.device)
-        predicted_dot = torch.dot(pred, target_encoding).view(1)
+        predicted_dot = torch.sum(pred_encoding * target_encoding).view(1)
+
         dots = torch.cat([dots, predicted_dot], 0)
 
-        # Get neg_sample other_encodings from other images
+        # Get neg_sample incorrect encodings (20% being from same image)
         n = 0
+        same_encodings = self.neg_sample // 5
         while n < self.neg_sample:
-            other_img = np.random.randint(batch_size)
+            # Get the 20% from the same image - ensure it is not the same patch
+            if n < same_encodings:
+                img_num = img
 
-            # Don't get encodings from the same image
-            # Might change this to allow different encodings from same image?
-            if other_img == img:
-                continue
+                row_num = np.random.randint(7)
+                while row_num == row:
+                    row_num = np.random.randint(7)
+
+                col_num = np.random.randint(7)
+                while col_num == col:
+                    col_num = np.random.randint(7)
+                
+            # Get 80% from other images
+            else:
+                img_num = np.random.randint(batch_size)
+
+                while img_num == img:
+                    img_num = np.random.randint(batch_size)
+                
+                row_num = np.random.randint(7)
+                col_num = np.random.randint(7)
             
-            other_encoding = encodings[img][np.random.randint(7)][np.random.randint(7)][0]
-            other_dot = torch.dot(pred, other_encoding).view(1)
+            other_encoding = encodings[img_num][row_num][col_num][0]
+            other_dot = torch.sum(pred_encoding * other_encoding).view(1)
+
             dots = torch.cat([dots, other_dot], 0)
 
             n += 1
@@ -146,7 +163,7 @@ class CPC(nn.Module):
         else:
             correct = 0
 
-        return cross_entropy_loss, correct
+        return cross_entropy_loss, correct, target_encoding, other_encoding, dots
 
 
 class CPC_encoder(nn.Module):
@@ -162,7 +179,7 @@ class CPC_encoder(nn.Module):
         self.enc.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
 
         # Change last activation function from ReLU6 to Hardtanh
-        self.enc.features[18][2] = nn.Hardtanh()
+        #self.enc.features[18][2] = nn.ReLU6()
 
         # Remove dropout in classifier
         self.enc.classifier = nn.Sequential(nn.Linear(1280, 2, bias=True))
@@ -200,7 +217,7 @@ if __name__ == "__main__":
     #net = CPC_encoder(batch_size = 5, classifier=True).to(device)
 
     x = torch.randn(5, 1, 256, 256).to(device)
-    net = MobileNetV2()
+    net = CPC_encoder()
     print(net)
 
     #classification = net(x)
