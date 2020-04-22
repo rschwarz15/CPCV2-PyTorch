@@ -48,6 +48,7 @@ def train(data_handler, epochs, test_size):
                f"Train: {round(float(loss),4)}, {round(float(acc), 4)}\n"
                 f"Test:  {round(float(val_loss),4)}, {round(float(val_acc),4)}")
 
+        scheduler.step()
 
 # Process test data to find validation loss/accuracy
 def test(size):
@@ -89,30 +90,27 @@ if __name__ == "__main__":
     device = torch.device("cuda:0")
 
     train_selection = 0
-    epochs = 50
+    epochs = 40
     batch_size = 35  
 
     if train_selection == 0:
-        print("Training CDC Encoder")
+        print("Training CDC Classifier")
 
         # Load the network
         net = CPC_encoder(classifier=True).to(device)
-        net.load_state_dict(torch.load(PATH + "trained_cpc_encoder", map_location=device))
+        net.load_state_dict(torch.load(PATH + "trained_cpc_encoder.pt", map_location=device))
 
         # Freeze encoder layers
         for name, param in net.named_parameters():
             if "enc.classifier" not in name:
                 param.requires_grad = False
-
-        # for name, param in net.named_parameters():
-        #     print(name, param.requires_grad)
         
         # Intitialise data handler, optimizer and loss_function
         data_handler = PetImagesCPCHandler(batch_size=batch_size,
                                             include_labels=True,
-                                            train_proportion=0.056,
+                                            train_proportion=0.006,
                                             test_proportion=0.05)
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=5e-2)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=0.1)
 
     elif train_selection == 1:
         print("Training MobileNet")
@@ -122,11 +120,12 @@ if __name__ == "__main__":
 
         # Intitialise data handler, optimizer and loss_function
         data_handler = PetImagesNormalHandler(batch_size=batch_size, 
-                                                train_proportion=0.028, 
+                                                train_proportion=0.56, 
                                                 test_proportion=0.05)
         optimizer = optim.Adam(net.parameters(), lr=1e-3)
 
     # Train chosen network
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
     loss_function = nn.MSELoss()
     train(data_handler=data_handler, epochs=epochs, test_size=100)
 

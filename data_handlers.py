@@ -9,15 +9,15 @@ import torch
 
 class PetImages():
     def __init__(self):
-        CATS = "PetImages/Cat"
-        DOGS = "PetImages/Dog"
-        LABELS = {CATS: 0, DOGS: 1}
-        IMG_SIZE = 256
-        pet_images = []
-        pet_images_patched = []
-        catCount = 0
-        dogCount = 0
-        normalise = True
+        self.CATS = "PetImages/Cat"
+        self.DOGS = "PetImages/Dog"
+        self.LABELS = {self.CATS: 0, self.DOGS: 1}
+        self.IMG_SIZE = 64
+        self.pet_images = []
+        self.pet_images_patched = []
+        self.catCount = 0
+        self.dogCount = 0
+        self.normalise = True
 
         # Make or load data
         if not path.exists("petImages.npy") or not path.exists("petImagesPatched.npy"):
@@ -62,7 +62,7 @@ class PetImages():
         for row in range(7):
             row_patches = []
             for column in range(7):
-                patch = [x[column*32:column*32+64] for x in img[row*32:row*32+64]]
+                patch = [x[column*8:column*8+16] for x in img[row*8:row*8+16]]
                 row_patches.append(patch)
             processed_img.append(row_patches)
 
@@ -190,7 +190,7 @@ class PetImagesCPCHandler(PetImages):
             index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
             batch = self.train_data[index]
 
-            batch_img = torch.Tensor([i[0] for i in batch]).view(self.batch_size, 7, 7, 1, 64, 64)
+            batch_img = torch.Tensor([i[0] for i in batch]).view(self.batch_size, 7, 7, 1, 16, 16)
             batch_img = batch_img / 255.0
 
             self.n += 1
@@ -210,7 +210,7 @@ class PetImagesCPCHandler(PetImages):
 
         batch = self.test_data[start:start+size]
 
-        batch_img = torch.Tensor([i[0] for i in batch]).view(size, 7, 7, 1, 64, 64)
+        batch_img = torch.Tensor([i[0] for i in batch]).view(size, 7, 7, 1, 16, 16)
         batch_img = batch_img / 255.0
         batch_lbl = torch.Tensor([i[1] for i in batch])
 
