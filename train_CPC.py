@@ -24,7 +24,7 @@ if __name__ == "__main__":
               neg_samples=neg_samples
              ).to(device)
     data = PetImagesCPCHandler(batch_size=batch_size)        
-    optimizer = optim.Adam(net.parameters(), lr=1e-5)
+    optimizer = optim.Adam(net.parameters(), lr=2e-4)
 
     # Load saved network
     LOAD_NET = False

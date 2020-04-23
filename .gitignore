@@ -2,6 +2,8 @@
 *.npy
 
 # Directories to ignore
-PetImages/
+data/petImages/
 __pycache__/
-Observations/
+observations/
+STL-10_binary/
+trainedModels/

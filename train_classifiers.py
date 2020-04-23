@@ -5,8 +5,9 @@ import torch.optim as optim
 
 import numpy as np
 from tqdm import tqdm
-from models import CPC_encoder, MobileNetV2
-from data_handlers import PetImagesCPCHandler, PetImagesNormalHandler
+from models.mobileNetV2_reshaped import MobileNetV2
+from models.CPC import CPC
+from data.data_handlers import PetImagesCPCHandler, PetImagesNormalHandler
 
 # Process a batch, return accuracy and loss
 def fwd_pass(X, y, train=False):
@@ -85,12 +86,12 @@ def test(size):
 
 
 if __name__ == "__main__":
-    PATH = "./TrainedModels/"
+    PATH = "./trainedModels/"
     IMG_SIZE = 256
     device = torch.device("cuda:0")
 
-    train_selection = 0
-    epochs = 40
+    train_selection = 1
+    epochs = 15
     batch_size = 35  
 
     if train_selection == 0:
@@ -120,7 +121,7 @@ if __name__ == "__main__":
 
         # Intitialise data handler, optimizer and loss_function
         data_handler = PetImagesNormalHandler(batch_size=batch_size, 
-                                                train_proportion=0.56, 
+                                                train_proportion=0.028, 
                                                 test_proportion=0.05)
         optimizer = optim.Adam(net.parameters(), lr=1e-3)
 
@@ -133,11 +134,12 @@ if __name__ == "__main__":
     val_loss, val_acc = test(size=1000)
     print(f"Final Accuracy: {round(val_acc*100, 2)}%")
 
-# 1%  of ImageNet = 140  images per class (train_proportion = 0.0056)
+# 1%  of ImageNet = 140  images per class (train_proportion = 0.006)
+# 2%  of ImageNet = 280  images per class (train_proportion = 0.0113)
 # 5%  of ImageNet = 700  images per class (train_proportion = 0.028)
 # 10% of ImageNet = 1400 images per class (train_proportion = 0.056)
+# 20% of ImageNet = 2800 images per class (train_proportion = 0.112)
 # 50% of ImageNet = 7000 images per class (train_proportion = 0.28)
-# 100% of ImageNet = 14000 images per class (train_proportion = 0.56)
 
 
 
