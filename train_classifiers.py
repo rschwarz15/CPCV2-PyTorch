@@ -1,13 +1,13 @@
+from CPC.models.CPC import CPC
+from CPC.models.mobileNetV2_reshaped import MobileNetV2
+from CPC.data.data_handlers import PetImagesCPCHandler, PetImagesNormalHandler
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
 import numpy as np
 from tqdm import tqdm
-from models.mobileNetV2_reshaped import MobileNetV2
-from models.CPC import CPC
-from data.data_handlers import PetImagesCPCHandler, PetImagesNormalHandler
 
 # Process a batch, return accuracy and loss
 def fwd_pass(X, y, train=False):
@@ -34,7 +34,6 @@ def fwd_pass(X, y, train=False):
         optimizer.step()
 
     return loss, acc 
-
 
 # Train net
 def train(data_handler, epochs, test_size):
@@ -88,10 +87,11 @@ def test(size):
 if __name__ == "__main__":
     PATH = "./trainedModels/"
     IMG_SIZE = 256
-    device = torch.device("cuda:0")
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_selection = 1
-    epochs = 15
+    epochs = 20
     batch_size = 35  
 
     if train_selection == 0:
@@ -121,7 +121,7 @@ if __name__ == "__main__":
 
         # Intitialise data handler, optimizer and loss_function
         data_handler = PetImagesNormalHandler(batch_size=batch_size, 
-                                                train_proportion=0.028, 
+                                                train_proportion=0.006, 
                                                 test_proportion=0.05)
         optimizer = optim.Adam(net.parameters(), lr=1e-3)
 

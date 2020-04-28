@@ -1,3 +1,6 @@
+from CPC.models.CPC import CPC
+from CPC.data.data_handlers import PetImagesCPCHandler
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,15 +8,15 @@ import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
 
-from models import CPC
-from data_handlers import PetImagesCPCHandler
-
 encoder_path = "./TrainedModels/trained_cpc_encoder.pt"
 full_cpc_path = "./TrainedModels/trained_full_cpc.pt"
-device = torch.device("cuda:0")
 
 if __name__ == "__main__":
-    batch_size = 8
+    # Set device to run on
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Running on {device}")
+
+    batch_size = 64
     pred_steps = 3
     neg_samples = 10
     epochs = 3
@@ -24,7 +27,7 @@ if __name__ == "__main__":
               neg_samples=neg_samples
              ).to(device)
     data = PetImagesCPCHandler(batch_size=batch_size)        
-    optimizer = optim.Adam(net.parameters(), lr=2e-4)
+    optimizer = optim.Adam(net.parameters(), lr=1e-4)
 
     # Load saved network
     LOAD_NET = False
@@ -38,7 +41,7 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
 
-            print(f'iteration {i}: loss = {float(loss)}, acc={acc}')
+            print(f'iteration {i}: loss={round(float(loss),4)}, acc={round(acc*100,4)}%')
         
     # Save the full network and the encoder
     torch.save(net.state_dict(), full_cpc_path)

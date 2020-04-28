@@ -4,13 +4,12 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-
 import torch
 
 class PetImages():
     def __init__(self):
-        self.CATS = "data/PetImages/Cat"
-        self.DOGS = "data/PetImages/Dog"
+        self.CATS = "CPC/data/PetImages/Cat"
+        self.DOGS = "CPC/data/PetImages/Dog"
         self.LABELS = {self.CATS: 0, self.DOGS: 1}
         self.IMG_SIZE = 64
         self.pet_images = []
@@ -20,7 +19,7 @@ class PetImages():
         self.normalise = True
 
         # Make or load data
-        if not path.exists("data/petImages.npy") or not path.exists("data/petImagesPatched.npy"):
+        if not path.exists("CPC/data/petImages.npy") or not path.exists("CPC/data/petImagesPatched.npy"):
             resp = input("Make the data (Y/N): ")
             if resp == "Y":
                 self.make_npy()
@@ -50,8 +49,8 @@ class PetImages():
                 except Exception as e:
                     pass
 
-        np.save("data/petImages.npy", self.pet_images)
-        np.save("data/petImagesPatched.npy", self.pet_images_patched)
+        np.save("CPC/data/petImages.npy", self.pet_images)
+        np.save("CPC/data/petImagesPatched.npy", self.pet_images_patched)
         print(f'Cats: {self.catCount}')
         print(f'Dogs: {self.dogCount}')
 
@@ -70,12 +69,12 @@ class PetImages():
 
     # Load the normal data from npy file into memory
     def load_normal(self):
-        self.pet_images = np.load("data/petImages.npy", allow_pickle=True)
+        self.pet_images = np.load("CPC/data/petImages.npy", allow_pickle=True)
    
     # Load the patched data from npy file into memory
     # This is the 7x7 patches for CPC
     def load_patched(self):
-        self.pet_images_patched = np.load("data/petImagesPatched.npy", allow_pickle=True)
+        self.pet_images_patched = np.load("CPC/data/petImagesPatched.npy", allow_pickle=True)
 
     # Show a random image from the dataset   
     def show_random_image(self):
@@ -219,8 +218,7 @@ class PetImagesCPCHandler(PetImages):
 
 if __name__ == "__main__":
     data = PetImagesCPCHandler(batch_size=10, train_proportion=0.1, test_proportion=0.05)
-
-    print(data.test_batch(5)[0].shape)
+    data.show_random_image()
         
 
         

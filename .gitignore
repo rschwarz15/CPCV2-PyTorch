@@ -2,8 +2,8 @@
 *.npy
 
 # Directories to ignore
-data/petImages/
-__pycache__/
+*__pycache__/
 observations/
-STL-10_binary/
-trainedModels/
+CPC/data/petImages/
+CPC/data/STL-10_binary/
+CPC/trainedModels/

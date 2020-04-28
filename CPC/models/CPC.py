@@ -1,25 +1,24 @@
+from CPC.models.pixelCNN import PixelCNN_Autoregressor
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.models as models
-
 import os
-import cv2
 import time
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-
-from models.pixelCNN import PixelCNN
 
 # Workaround for Python 3.8 Error -> RuntimeError: error in LoadLibraryA
 # Fix being released with torch 1.5
 import ctypes
 ctypes.cdll.LoadLibrary('caffe2_nvrtc.dll')
 
-# Run everything on the first GPU available
-device = torch.device("cuda:0") 
+# Set device to run on
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class CPC_encoder(nn.Module):
     def __init__(self, classifier = False):
@@ -77,9 +76,9 @@ class CPC(nn.Module):
         self.enc = CPC_encoder()
 
         # Define Autoregressive Network
-        #self.ar = PixelCNN()
+        self.ar = PixelCNN_Autoregressor(weight_init = True, in_channels=1280)
 
-        # Define Predictive Networkyo
+        # Define Predictive Networks
         self.Wk  = nn.ModuleList([nn.Linear(self.pred_size, self.pred_size) for i in range(pred_steps)])
 
     def forward(self, x):
@@ -97,12 +96,13 @@ class CPC(nn.Module):
 
         ### FIND ALL CONTEXT VECTORS
         # reshape encodings to batch_size * 1280 * 7 * 7 for ar parse
-        encodings = encodings.permute(0,3,1,2) 
+        encodings = encodings.permute(0,3,1,2).contiguous()
+        
         contexts = self.ar(encodings) # contexts = batch_size * 1280 * 7 * 7
 
         # reshape contexts and encodings back to batch_size * 7 * 7 * 1280
-        contexts = contexts.permute(0,2,3,1)
-        encodings = encodings.permute(0,2,3,1)
+        contexts = contexts.permute(0,2,3,1).contiguous()
+        encodings = encodings.permute(0,2,3,1).contiguous()
 
         ### FIND ALL PREDICTED VECTORS AND DETERMINE LOSS
         total_loss, number_preds, number_correct = 0, 0, 0
@@ -132,7 +132,7 @@ class CPC(nn.Module):
     #   - the img, row and col of the predicted encoding
     # Returns:
     #   - loss as determined by infoNCE 
-    #   - accuracy of argmax being the positive sample
+    #   - whether or not argmax is the positive sample
     def info_nce_loss(self, pred_encoding, encodings, img, row, col):
         batch_size = encodings.shape[0]
         
@@ -192,13 +192,10 @@ class CPC(nn.Module):
 
         return cross_entropy_loss, correct
 
-
 # Testing
 if __name__ == "__main__":
     x = torch.randn(8, 7, 7, 1, 16, 16).to(device)
     net = CPC(pred_steps=3, neg_samples=5).to(device)
-
-    torch.backends.cudnn.enabled = False # temporary fix
 
     loss, acc = net(x)
     print(loss)
