@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
+# torch.models.mobilenet_v2 with 1 input channel instead of 3
+# also softmax applied for class classification use
 class MobileNetV2(nn.Module):
     def __init__(self):
         super().__init__()

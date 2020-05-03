@@ -16,9 +16,9 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Running on {device}")
 
-    batch_size = 64
-    pred_steps = 3
-    neg_samples = 10
+    batch_size = 50 # paper uses 32 GPUs each with minibatch of 16
+    pred_steps = 5 # as in paper
+    neg_samples = 16 # this is the defualt used in GIM
     epochs = 3
     torch.backends.cudnn.enabled = False # temporary fix
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
               neg_samples=neg_samples
              ).to(device)
     data = PetImagesCPCHandler(batch_size=batch_size)        
-    optimizer = optim.Adam(net.parameters(), lr=1e-4)
+    optimizer = optim.Adam(net.parameters(), lr=2e-4) # lr as in paper
 
     # Load saved network
     LOAD_NET = False
@@ -35,13 +35,22 @@ if __name__ == "__main__":
         net.load_state_dict(torch.load(full_cpc_path, map_location=device))
 
     # Train the network
+    iter_per_epoch = len(data)
+    best_loss = 1000
+    best_acc = 0
     for epoch in range(epochs):
         for i, batch in enumerate(data):
             loss, acc = net(batch.to(device))
             loss.backward()
             optimizer.step()
 
-            print(f'iteration {i}: loss={round(float(loss),4)}, acc={round(acc*100,4)}%')
+            if loss < best_loss:
+                best_loss = loss
+
+            if acc > best_acc:
+                best_acc = acc
+
+            print(f'epoch {epoch} iteration {i}/{iter_per_epoch}: loss={round(float(loss),4)}, acc={round(acc*100,4)}% (best_loss= {round(float(best_loss),4)}, best_acc={round(best_acc*100,4)}%)')
         
     # Save the full network and the encoder
     torch.save(net.state_dict(), full_cpc_path)

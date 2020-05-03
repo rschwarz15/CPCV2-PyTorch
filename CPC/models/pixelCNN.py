@@ -1,18 +1,40 @@
-# From the following:
+# From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN.py
+# https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN_Autoregressor.py
+# https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/utils/model_utils.py 
+
+# Loosely derived from https://github.com/jzbontar/pixelcnn-pytorch/blob/master/main.py
+# and moreso derived from https://github.com/rampage644/wavenet/blob/master/wavenet/models.py
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+#owidth  = floor((width  + 2*padW - kW) / dW + 1)
+#oheight = floor((height + 2*padH - kH) / dH + 1)
+#dW is stride, assuming 1:
+# kW // 2 = padW
+def same_padding(kernel_size):
+    # assumming stride 1
+    if isinstance(kernel_size, int):
+        return kernel_size // 2
+    else:
+        return (kernel_size[0] // 2, kernel_size[1] // 2)
+
+# PyTorch port of
 class MaskedConvolution2D(nn.Conv2d):
     def __init__(self, in_channels, out_channels, kernel_size,
             *args, mask='B', vertical=False, mask_mode="noblind", **kwargs):
-
+        if "padding" not in kwargs:
+            assert "stride" not in kwargs
+            kwargs["padding"] = same_padding(kernel_size)
+        remove = {"conditional_features", "conditional_image_channels"}
+        for feature in remove:
+            if feature in kwargs:
+                del kwargs[feature]
         super(MaskedConvolution2D, self).__init__(in_channels,
                 out_channels, kernel_size, *args, **kwargs)
-
         Cout, Cin, kh, kw = self.weight.size()
         pre_mask = np.ones_like(self.weight.data.cpu().numpy()).astype(np.float32)
         yc, xc = kh // 2, kw // 2
@@ -21,10 +43,8 @@ class MaskedConvolution2D(nn.Conv2d):
 
         if mask_mode == "none":
             pass
-
         elif mask_mode == "only_vert":
             pre_mask[:, :, yc + 1:, :] = 0.0
-
         elif mask_mode == "noblind":
             # context masking - subsequent pixels won't have access
             # to next pixels (spatial dim)
@@ -57,15 +77,14 @@ class MaskedConvolution2D(nn.Conv2d):
             if mask == 'A':
                 # Center must be zero in first layer
                 pre_mask[:, :, yc, xc] = 0.0
-                
         elif mask_mode == "turukin":
             pre_mask[:, :, yc+1:, :] = 0.0
             pre_mask[:, :, yc, xc+1:] = 0.0
             if mask == 'A':
                 pre_mask[:, :, yc, xc] = 0.0
 
-        # print("%s %s MASKED CONV: %d x %d. Mask:" % (mask, "VERTICAL" if vertical else "HORIZONTAL", kh, kw))
-        # print(pre_mask[0, 0, :, :])
+        #print("%s %s MASKED CONV: %d x %d. Mask:" % (mask, "VERTICAL" if vertical else "HORIZONTAL", kh, kw))
+        #print(pre_mask[0, 0, :, :])
 
         self.register_buffer("mask", torch.from_numpy(pre_mask))
 
@@ -91,7 +110,6 @@ class PixelCNNGatedLayer(nn.Module):
         self.out_channels = out_channels
         self.gated = gated
         gm = 2 if gated else 1
-        
         self.vertical_conv = MaskedConvolution2D(
             in_channels, gm * out_channels, (filter_size, filter_size),
             mask=mask, vertical=True, mask_mode=mask_mode, groups=groups)
@@ -188,7 +206,6 @@ class PixelCNNGatedLayer(nn.Module):
                 h_skip = F.relu(h_skip)
         return v_out, h_out, h_skip
 
-
 class PixelCNNGatedStack(nn.Module):
     def __init__(self, *args):
         super().__init__()
@@ -216,10 +233,10 @@ class PixelCNNGatedStack(nn.Module):
             skips = torch.cat(skips, 1)
         return v, h, skips
 
-
 class PixelCNN_Autoregressor(torch.nn.Module):
     def __init__(self, weight_init, in_channels, pixelcnn_layers=4, **kwargs):
         super().__init__()
+        self.weight_init = weight_init
 
         layer_objs = [
             PixelCNNGatedLayer.primary(
@@ -236,7 +253,7 @@ class PixelCNN_Autoregressor(torch.nn.Module):
         self.stack = PixelCNNGatedStack(*layer_objs)
         self.stack_out = nn.Conv2d(in_channels, in_channels, 1)
 
-        if weight_init:
+        if self.weight_init:
             self.initialize()
 
     def initialize(self):
@@ -258,7 +275,6 @@ class PixelCNN_Autoregressor(torch.nn.Module):
 
     def forward(self, input):
         _, c_out, _ = self.stack(input, input)  # Bc, C, H, W
-        #print(c_out.shape)
         c_out = self.stack_out(c_out)
 
         assert c_out.shape[1] == input.shape[1]
@@ -293,11 +309,8 @@ def makeDeltaOrthogonal(weights, gain):
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    net = PixelCNN_Autoregressor(weight_init = True, in_channels=1280).to(device)
-    x = torch.randn(5, 1280, 7, 7).to(device)
+    x = torch.randn(8, 1280, 7, 7).to(device)
+    net = PixelCNN_Autoregressor(weight_init=False, in_channels=1280).to(device)
 
-    output = net(x)
-
-    print(output)
-    print(output.shape)
-
+    c = net(x)
+    print(c.shape)
