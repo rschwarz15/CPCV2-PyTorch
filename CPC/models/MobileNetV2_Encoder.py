@@ -1,8 +1,10 @@
+import torch
 from torch import nn
 
 # This is a modified version of torch.models.mobilenet_v2
 # All batch normalisation is removed
 # Input channels is 1 instead of 3
+# Option for using classifier
 
 
 def _make_divisible(v, divisor, min_value=None):
@@ -30,6 +32,7 @@ class ConvReLU(nn.Sequential):
         padding = (kernel_size - 1) // 2
         super(ConvReLU, self).__init__(
             nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, groups=groups, bias=False),
+            #nn.BatchNorm2d(out_planes),
             nn.ReLU6(inplace=True)
         )
 
@@ -52,6 +55,7 @@ class InvertedResidual(nn.Module):
             ConvReLU(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim),
             # pw-linear
             nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+            #nn.BatchNorm2d(oup),
         ])
         self.conv = nn.Sequential(*layers)
 
@@ -62,9 +66,10 @@ class InvertedResidual(nn.Module):
             return self.conv(x)
 
 
-class MobileNetV2(nn.Module):
+class MobileNetV2_Encoder(nn.Module):
     def __init__(self,
                  num_classes=1000,
+                 use_classifier=False,
                  width_mult=1.0,
                  inverted_residual_setting=None,
                  round_nearest=8,
@@ -81,7 +86,10 @@ class MobileNetV2(nn.Module):
             block: Module specifying inverted residual building block for mobilenet
 
         """
-        super(MobileNetV2, self).__init__()
+        super(MobileNetV2_Encoder, self).__init__()
+
+        self.batch_size = None
+        self.use_classifier=use_classifier
 
         if block is None:
             block = InvertedResidual
@@ -133,32 +141,44 @@ class MobileNetV2(nn.Module):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out')
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.normal_(m.weight, 0, 1)
                 nn.init.zeros_(m.bias)
 
-    def _forward_impl(self, x):
+    def _forward_impl(self, x):    
         # This exists since TorchScript doesn't support inheritance, so the superclass method
         # (this one) needs to have a name other than `forward` that can be accessed in a subclass
+
+        if self.batch_size is None:
+            self.batch_size = x.shape[0]
+
         x = self.features(x)
         # Cannot use "squeeze" as batch-size can be 1 => must use reshape with x.shape[0]
         x = nn.functional.adaptive_avg_pool2d(x, 1).reshape(x.shape[0], -1)
-        x = self.classifier(x)
+
+        if self.use_classifier:
+            # Reshape x so that each image is seperate
+            x = x.view(self.batch_size, 49, 1280)
+
+            x = torch.mean(x, dim=1) # mean for each image, x = batch_size * 1280
+            x = self.classifier(x)
+
         return x
 
     def forward(self, x):
         return self._forward_impl(x)
 
 
-def mobilenet_v2(**kwargs):
-    """
-    Constructs a MobileNetV2 architecture from
-    `"MobileNetV2: Inverted Residuals and Linear Bottlenecks" <https://arxiv.org/abs/1801.04381>`_.
+if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    This is a modified version of torch.models.mobilenet_v2
-    All batch normalisation is removed
-    Input channels is 1 instead of 3
-    """
-    model = MobileNetV2(**kwargs)
+    net = MobileNetV2_Encoder().to(device)
+    print(net)
 
-    return model
+    x = torch.randn(49, 1, 16, 16).to(device)
+    out = net(x)
+
+    print(out)

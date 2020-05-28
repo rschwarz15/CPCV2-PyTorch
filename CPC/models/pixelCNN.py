@@ -1,10 +1,9 @@
 # From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN.py
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN_Autoregressor.py
-# https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/utils/model_utils.py 
 
-# Loosely derived from https://github.com/jzbontar/pixelcnn-pytorch/blob/master/main.py
-# and moreso derived from https://github.com/rampage644/wavenet/blob/master/wavenet/models.py
+from CPC.models.model_utils import makeDeltaOrthogonal
+#from model_utils import makeDeltaOrthogonal
 
 import torch
 import torch.nn as nn
@@ -233,8 +232,8 @@ class PixelCNNGatedStack(nn.Module):
             skips = torch.cat(skips, 1)
         return v, h, skips
 
-class PixelCNN_Autoregressor(torch.nn.Module):
-    def __init__(self, weight_init, in_channels, pixelcnn_layers=4, **kwargs):
+class PixelCNN(torch.nn.Module):
+    def __init__(self, in_channels, weight_init=False, pixelcnn_layers=4, **kwargs):
         super().__init__()
         self.weight_init = weight_init
 
@@ -280,37 +279,3 @@ class PixelCNN_Autoregressor(torch.nn.Module):
         assert c_out.shape[1] == input.shape[1]
 
         return c_out
-
-
-def genOrthgonal(dim):
-    a = torch.zeros((dim, dim)).normal_(0, 1)
-    q, r = torch.qr(a)
-    d = torch.diag(r, 0).sign()
-    diag_size = d.size(0)
-    d_exp = d.view(1, diag_size).expand(diag_size, diag_size)
-    q.mul_(d_exp)
-    return q
-
-def makeDeltaOrthogonal(weights, gain):
-    rows = weights.size(0)
-    cols = weights.size(1)
-    if rows > cols:
-        print("In_filters should not be greater than out_filters.")
-    weights.data.fill_(0)
-    dim = max(rows, cols)
-    q = genOrthgonal(dim)
-    mid1 = weights.size(2) // 2
-    mid2 = weights.size(3) // 2
-    with torch.no_grad():
-        weights[:, :, mid1, mid2] = q[: weights.size(0), : weights.size(1)]
-        weights.mul_(gain)
-
-
-if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    x = torch.randn(8, 1280, 7, 7).to(device)
-    net = PixelCNN_Autoregressor(weight_init=False, in_channels=1280).to(device)
-
-    c = net(x)
-    print(c.shape)

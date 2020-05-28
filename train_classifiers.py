@@ -1,5 +1,5 @@
 from CPC.models.CPC import CPC, CPCEncoder
-from CPC.models.mobileNetV2 import MobileNetV2
+from CPC.models.MobileNetV2 import MobileNetV2
 from CPC.data.data_handlers import PetImagesCPCHandler, PetImagesNormalHandler
 
 import torch
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         print("Training CDC Classifier")
 
         # Load the CPC trained encoder (with classifier layer activated)
-        net = CPCEncoder(classifier=True).to(device)
+        net = CPCEncoder(use_classifier=True).to(device)
         net.load_state_dict(torch.load(PATH + "trained_cpc_encoder.pt", map_location=device))
 
         # Freeze encoder layers
