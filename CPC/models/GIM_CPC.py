@@ -1,7 +1,7 @@
 from CPC.models.PixelCNN import PixelCNN
 from CPC.models.MobileNetV2_Encoder import MobileNetV2_Encoder    
 from CPC.models.Resnet_Encoder import ResNet_Encoder
-from CPC.models.InfoNCE_Loss import InfoNCE_Loss
+from CPC.models.GIM_InfoNCE_Loss import InfoNCE_Loss
 
 import os
 import time
@@ -40,12 +40,11 @@ class CPC(nn.Module):
         # Define Autoregressive Network
         self.ar = PixelCNN(in_channels=self.pred_size)
 
-        # Define Predictive Network
-        # bias = False: because the paper infers Wk is just a matrix mult
-        self.W_k = nn.ModuleList(
-            nn.Linear(self.pred_size, self.pred_size, bias=False) 
-            for _ in range(self.pred_steps)
-        )
+        # Define Predictive and Loss Network
+        self.pred_loss = InfoNCE_Loss(in_channels=self.pred_size, 
+                                        out_channels=self.pred_size, 
+                                        negative_samples=neg_samples, 
+                                        pred_steps=pred_steps)
 
     def forward(self, x):
         # Input x is of shape (batch_size, 1, 64, 64)
@@ -61,22 +60,9 @@ class CPC(nn.Module):
         # then premute back to (batch_size, 7, 7, pred_size) 
         self.encodings = self.encodings.permute(0,3,1,2).contiguous() # (batch_size, pred_size, 7, 7)
         self.contexts = self.ar(self.encodings) # (batch_size, pred_size, 7, 7)
-        self.contexts = self.contexts.permute(0,2,3,1).contiguous() # (batch_size, 7, 7, pred_size) 
-        self.encodings = self.encodings.permute(0,2,3,1).contiguous() # (batch_size, 7, 7, pred_size) 
 
-        # Find predictions and loss
-        loss = 0
-        for step in range(self.pred_steps):
-            # XXX GIM skips overlap in first step 
-
-            c = self.contexts[:,:7-step-1].contiguous().view(-1, self.pred_size)
-            step_predictions = self.W_k[1](c)
-            step_targets = self.encodings[:,step+1:,:,:].contiguous().view(-1, self.pred_size)
-
-            # Find Contrastive Loss
-            loss += InfoNCE_Loss(self.encodings, step_predictions, step_targets, self.neg_samples)
-
-        loss = loss / self.pred_steps
+        # Find Contrastive Loss
+        loss = self.pred_loss(self.encodings, self.contexts)
 
         return loss
 

@@ -1,6 +1,7 @@
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
 
 from CPC.models.model_utils import makeDeltaOrthogonal
+#from model_utils import makeDeltaOrthogonal
   
 import torch.nn as nn
 import torch.nn.functional as F
@@ -43,11 +44,11 @@ class PreActBottleneckNoBN(nn.Module):
 
     def __init__(self, in_planes, planes, stride=1):
         super(PreActBottleneckNoBN, self).__init__()
-        # self.bn1 = nn.BatchNorm2d(in_planes)
+        self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1)
-        # self.bn2 = nn.BatchNorm2d(planes)
+        self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1)
-        # self.bn3 = nn.BatchNorm2d(planes)
+        self.bn3 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1)
 
         if stride != 1 or in_planes != self.expansion * planes:
@@ -66,19 +67,17 @@ class PreActBottleneckNoBN(nn.Module):
         out += shortcut
         return out
 
-class ResNet_Encoder(nn.Module):
+class ResNet(nn.Module):
     def __init__(
         self,
         resnet,
         num_classes,
-        use_classifier=False,
         weight_init=False,
-        patch_size=16,
         input_dims=1,
         num_blocks=[3, 4, 6, 6, 6, 6, 6],
         filter=[64, 128, 256, 256, 256, 256, 256],
     ):
-        super(ResNet_Encoder, self).__init__()
+        super(ResNet, self).__init__()
         
         if resnet == 34:
             self.block = PreActBlockNoBN
@@ -87,12 +86,9 @@ class ResNet_Encoder(nn.Module):
         else:
             raise Exception("Undefined resnet choice")
 
-        self.patch_size = patch_size
-        self.use_classifier = use_classifier
         self.filter = filter
 
-        # Resnet Module
-
+        # Resnet Model
         self.model = nn.Sequential()
 
         self.model.add_module(
@@ -140,35 +136,8 @@ class ResNet_Encoder(nn.Module):
         return nn.Sequential(*layers)
 
 
-    def forward(self, x):
-        # convert image to patches
-        # takes x as (batch_size, 1, 64, 64)
-        # patches it to (batch_size, 7, 7, 1, 16, 16)
-        # then flattens to (batch_size * 7 * 7 * 1, 16, 16)
-        x = (
-            x.unfold(2, self.patch_size, self.patch_size // 2)
-            .unfold(3, self.patch_size, self.patch_size // 2)
-            .permute(0, 2, 3, 1, 4, 5)
-        )
-        n_patches_x = x.shape[1]
-        n_patches_y = x.shape[2]
-        x = x.view(
-            x.shape[0] * x.shape[1] * x.shape[2], x.shape[3], x.shape[4], x.shape[5]
-        )
-        
-        # Run the model
+    def forward(self, x, patchify=False):
         z = self.model(x)
-        z = F.adaptive_avg_pool2d(z, 1)
-        z = z.reshape(-1, n_patches_x, n_patches_y, z.shape[1]) # (batch_size,7,7,pred_size)
-
-        # Use classifier if specified
-        if self.use_classifier:
-            # Reshape z so that each image is seperate
-            z = z.view(z.shape[0], 49, z.shape[3])
-
-            z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
-            z = self.classifier(z)
-
+        z = F.adaptive_avg_pool2d(z, 1).view(z.shape[0],z.shape[1])
+        z = self.classifier(z)
         return z
-
-

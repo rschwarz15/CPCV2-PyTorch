@@ -11,16 +11,13 @@ import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# all predictions . correct (done individually)
-# all predictions . incorrect
-
 def InfoNCE_Loss(encodings, predictions, targets, neg_samples):  
     batch_size = encodings.shape[0]  
     pred_size = encodings.shape[3]
     number_of_preds = predictions.shape[0]
     
-    # Calculate the dot product with target encodings
-    positive_dots = torch.mm(predictions, targets.t()).diag().view(number_of_preds, 1)
+    # Calculate the dot product with target encoding
+    positive_dot = torch.mm(predictions, targets.t()).diag().view(number_of_preds, 1)
 
     # Create matrix of negative encodings
     neg_encodings_matrix = torch.tensor([]).to(device)
@@ -34,9 +31,9 @@ def InfoNCE_Loss(encodings, predictions, targets, neg_samples):
 
     # Calculate the dot product with negative encodings
     negative_dots = torch.mm(predictions, neg_encodings_matrix.t())
-
+    
     # Collect all dot products
-    dots = torch.cat([positive_dots, negative_dots], dim=1)
+    dots = torch.cat([positive_dot, negative_dots], dim=1)
 
     # Calculate loss
     target = torch.tensor([0] * number_of_preds).to(device)
