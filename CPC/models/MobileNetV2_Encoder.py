@@ -88,7 +88,6 @@ class MobileNetV2_Encoder(nn.Module):
         """
         super(MobileNetV2_Encoder, self).__init__()
 
-        self.batch_size = None
         self.use_classifier=use_classifier
 
         if block is None:
@@ -151,22 +150,37 @@ class MobileNetV2_Encoder(nn.Module):
     def _forward_impl(self, x):    
         # This exists since TorchScript doesn't support inheritance, so the superclass method
         # (this one) needs to have a name other than `forward` that can be accessed in a subclass
+        
+        ### Convert image to patches
+        # takes x as (batch_size, 1, 64, 64)
+        # patches it to (batch_size, 7, 7, 1, 16, 16)
+        # then flattens to (batch_size * 7 * 7, 1, 16, 16)
+        x = (
+            x.unfold(2, self.patch_size, self.patch_size // 2)
+            .unfold(3, self.patch_size, self.patch_size // 2)
+            .permute(0, 2, 3, 1, 4, 5)
+            .contiguous()
+        )
+        n_patches_x = x.shape[1]
+        n_patches_y = x.shape[2]
+        x = x.view(
+            x.shape[0] * x.shape[1] * x.shape[2], x.shape[3], x.shape[4], x.shape[5]
+        )
 
-        if self.batch_size is None:
-            self.batch_size = x.shape[0]
+        ### Run the model
+        z = self.features(x)
+        # Cannot use "squeeze" as batch-size can be 1 => must use reshape with z.shape[0]
+        z = nn.functional.adaptive_avg_pool2d(z, 1).reshape(z.shape[0], -1)
 
-        x = self.features(x)
-        # Cannot use "squeeze" as batch-size can be 1 => must use reshape with x.shape[0]
-        x = nn.functional.adaptive_avg_pool2d(x, 1).reshape(x.shape[0], -1)
-
+        ### Use classifier if specified
         if self.use_classifier:
-            # Reshape x so that each image is seperate
-            x = x.view(self.batch_size, 49, 1280)
+            # Reshape z so that each image is seperate
+            z = z.view(z.shape[0], 49, z.shape[3])
 
-            x = torch.mean(x, dim=1) # mean for each image, x = batch_size * 1280
-            x = self.classifier(x)
+            z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
+            z = self.classifier(z)
 
-        return x
+        return z
 
     def forward(self, x):
         return self._forward_impl(x)

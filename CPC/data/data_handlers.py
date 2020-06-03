@@ -13,13 +13,12 @@ class PetImages():
         self.LABELS = {self.CATS: 0, self.DOGS: 1}
         self.IMG_SIZE = 64
         self.pet_images = []
-        self.pet_images_patched = []
         self.catCount = 0
         self.dogCount = 0
         self.normalise = True
 
         # Make or load data
-        if not path.exists("CPC/data/petImages.npy") or not path.exists("CPC/data/petImagesPatched.npy"):
+        if not path.exists("CPC/data/petImages.npy"):
             resp = input("Make the data (Y/N): ")
             if resp == "Y":
                 self.make_npy()
@@ -35,11 +34,7 @@ class PetImages():
                     img = cv2.resize(img, (self.IMG_SIZE, self.IMG_SIZE))
                     lbl = np.eye(2)[self.LABELS[label]]
 
-                    # Create normal data
                     self.pet_images.append([np.array(img), lbl])
-
-                    # Create patched data
-                    self.make_patched(img, lbl)
 
                     # set counts
                     if label == self.CATS: 
@@ -50,35 +45,17 @@ class PetImages():
                     pass
 
         np.save("CPC/data/petImages.npy", self.pet_images)
-        np.save("CPC/data/petImagesPatched.npy", self.pet_images_patched)
         print(f'Cats: {self.catCount}')
         print(f'Dogs: {self.dogCount}')
 
-    # From an image create the 7x7 patches 
-    def make_patched(self, img, lbl):
-        processed_img = []
-
-        for row in range(7):
-            row_patches = []
-            for column in range(7):
-                patch = [x[column*8:column*8+16] for x in img[row*8:row*8+16]]
-                row_patches.append(patch)
-            processed_img.append(row_patches)
-
-        self.pet_images_patched.append([np.array(processed_img), lbl])
 
     # Load the normal data from npy file into memory
-    def load_normal(self):
+    def load_data(self):
         self.pet_images = np.load("CPC/data/petImages.npy", allow_pickle=True)
-   
-    # Load the patched data from npy file into memory
-    # This is the 7x7 patches for CPC
-    def load_patched(self):
-        self.pet_images_patched = np.load("CPC/data/petImagesPatched.npy", allow_pickle=True)
 
     # Show a random image from the dataset   
     def show_random_image(self):
-        self.load_normal()
+        self.load_data()
 
         randomImage = np.random.randint(len(self.pet_images))
         plt.imshow(self.pet_images[randomImage][0], cmap="gray")
@@ -88,10 +65,15 @@ class PetImages():
 
 
 # Iterator to generate batches of normal data
-class PetImagesNormalHandler(PetImages):
-    def __init__(self, batch_size, train_proportion, test_proportion):
+class PetImagesHandler(PetImages):
+    def __init__(self, batch_size, train_proportion, test_proportion, include_labels):
         super().__init__()
-        self.load_normal()
+
+        assert test_proportion + train_proportion <= 1
+
+        self.load_data()
+        
+        self.include_labels = include_labels
 
         # Seperate training and test data
         np.random.shuffle(self.pet_images)
@@ -106,9 +88,9 @@ class PetImagesNormalHandler(PetImages):
         # set values for iteration
         self.batch_size = batch_size
         self.n_batches = self.train_data_len // batch_size
-        
+
         self.n = 0
-        self.perm = []
+        self.perm = None
 
     def __len__(self):
         return self.n_batches
@@ -121,107 +103,50 @@ class PetImagesNormalHandler(PetImages):
         if self.n == 0:
             self.perm = np.random.permutation(self.train_data_len)
 
-        if self.n < self.n_batches:
-            index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
-            batch = self.train_data[index]
-
-            batch_img = torch.Tensor([i[0] for i in batch]).view(self.batch_size, 1, 64, 64)
-            batch_img = batch_img / 255.0
-            batch_lbl = torch.Tensor([i[1] for i in batch])
+        if self.n < self.n_batches:    
+            # Using the random permutation get a batch of indexes, then get data        
+            indexes = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
+            batch = self.train_data[indexes]
 
             self.n += 1
 
-            return batch_img, batch_lbl
-
-        else:
-            self.n = 0
-            raise StopIteration
-
-    def test_batch(self, size):
-        start = np.random.randint(self.test_data_len - size)
-
-        batch = self.test_data[start:start+size]
-
-        batch_img = torch.Tensor([i[0] for i in batch]).view(size, 1, 64, 64)
-        batch_img = batch_img / 255.0
-        batch_lbl = torch.Tensor([i[1] for i in batch])
-
-        return batch_img, batch_lbl
-
-
-# Iterator to generate batches of patched data
-# Defualt input parameters are for cpc training using all data unlabelled
-class PetImagesCPCHandler(PetImages):
-    def __init__(self, batch_size, include_labels=False, train_proportion=1, test_proportion=0):
-        super().__init__()
-        self.load_patched()
-
-        # Seperate training and test data
-        np.random.shuffle(self.pet_images_patched)
-        self.train_data_len = int(train_proportion * len(self.pet_images_patched))
-        self.test_data_len = int(test_proportion * len(self.pet_images_patched))
-
-        self.train_data = self.pet_images_patched[:self.train_data_len]
-        self.test_data = self.pet_images_patched[self.train_data_len:self.train_data_len + self.test_data_len]
-
-        del self.pet_images_patched
-
-        # set values for iteration
-        self.batch_size = batch_size
-        self.n_batches = self.train_data_len // batch_size
-        self.include_lables = include_labels
-
-        self.n = 0
-        self.perm = []
-
-    def __len__(self):
-        return self.n_batches
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        # If it is the first iteration generate random permutation of data
-        if self.n == 0:
-            self.perm = np.random.permutation(self.train_data_len)
-
-        if self.n < self.n_batches:
-            index = self.perm[self.batch_size*self.n: self.batch_size*self.n + self.batch_size]  
-            batch = self.train_data[index]
-
-            batch_img = torch.Tensor([i[0] for i in batch]).view(self.batch_size, 7, 7, 1, 16, 16)
+            batch_img = torch.Tensor([i[0] for i in batch])
+            batch_img = batch_img.view(self.batch_size, 1, 64, 64)
             batch_img = batch_img / 255.0
 
-            self.n += 1
-
-            if self.include_lables:
+            if self.include_labels:
                 batch_lbl = torch.Tensor([i[1] for i in batch])
-
                 return batch_img, batch_lbl
-            else:
-                return batch_img
+
+            return batch_img
+
         else:
             self.n = 0
             raise StopIteration
 
-    def test_batch(self, size):
-        start = np.random.randint(self.test_data_len - size)
+    def test_batch(self, batch_size):
+        start = np.random.randint(self.test_data_len - batch_size)
 
-        batch = self.test_data[start:start+size]
+        batch = self.test_data[start:start+batch_size]
 
-        batch_img = torch.Tensor([i[0] for i in batch]).view(size, 7, 7, 1, 16, 16)
+        batch_img = torch.Tensor([i[0] for i in batch]).view(batch_size, 1, 64, 64)
         batch_img = batch_img / 255.0
         batch_lbl = torch.Tensor([i[1] for i in batch])
 
         return batch_img, batch_lbl
-        
 
 if __name__ == "__main__":
-    data = PetImagesCPCHandler(batch_size=10, train_proportion=0.1, test_proportion=0.05)
+    data = PetImagesHandler(
+        batch_size=10, 
+        train_proportion=0.1, 
+        test_proportion=0.05,
+        include_labels=True)
+    print(data)
     data.show_random_image()
         
 
-        
+# class DataHandler():
+
 
 
 
