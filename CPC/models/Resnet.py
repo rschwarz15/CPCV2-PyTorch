@@ -1,3 +1,4 @@
+# From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
 
 from CPC.models.model_utils import makeDeltaOrthogonal
@@ -112,7 +113,7 @@ class ResNet(nn.Module):
         # Additional Classifier 
         self.classifier = nn.Sequential(
             #nn.Dropout(0.2),
-            nn.Linear(self.filter[-1] * self.block.expansion, num_classes),
+            nn.Linear(self.filter[-1] * self.block.expansion, num_classes)
         )
 
         if weight_init:
@@ -140,4 +141,6 @@ class ResNet(nn.Module):
         z = self.model(x)
         z = F.adaptive_avg_pool2d(z, 1).view(z.shape[0],z.shape[1])
         z = self.classifier(z)
+        z = F.log_softmax(z, dim=1)
+        
         return z

@@ -18,4 +18,6 @@ class MobileNetV2(nn.Module):
 
     def forward(self, x):   
         x = self.model(x)
-        return F.softmax(x, dim=1)
+        x = F.log_softmax(x, dim=1)
+        
+        return x

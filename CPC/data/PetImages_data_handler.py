@@ -1,10 +1,15 @@
+import torch
+import torchvision.transforms as transforms
+import torchvision
+from torchvision.transforms import transforms
+
 import os
 from os import path
 import cv2
-import numpy as np
 from tqdm import tqdm
+import numpy as np
 import matplotlib.pyplot as plt
-import torch
+
 
 class PetImages():
     def __init__(self):
@@ -135,6 +140,7 @@ class PetImagesHandler(PetImages):
 
         return batch_img, batch_lbl
 
+
 if __name__ == "__main__":
     data = PetImagesHandler(
         batch_size=10, 
@@ -145,7 +151,6 @@ if __name__ == "__main__":
     data.show_random_image()
         
 
-# class DataHandler():
 
 
 

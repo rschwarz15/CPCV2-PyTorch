@@ -1,3 +1,4 @@
+# From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
 
 from CPC.models.model_utils import makeDeltaOrthogonal
@@ -169,6 +170,7 @@ class ResNet_Encoder(nn.Module):
 
             z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
             z = self.classifier(z)
+            z = F.log_softmax(z, dim=1)
 
         return z
 

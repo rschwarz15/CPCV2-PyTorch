@@ -1,5 +1,6 @@
 import torch
-from torch import nn
+import torch.nn as nn
+import torch.nn.functional as F
 
 # This is a modified version of torch.models.mobilenet_v2
 # All batch normalisation is removed
@@ -179,6 +180,7 @@ class MobileNetV2_Encoder(nn.Module):
 
             z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
             z = self.classifier(z)
+            z = F.log_softmax(z, dim=1)
 
         return z
 

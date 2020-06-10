@@ -5,5 +5,5 @@
 *__pycache__/
 observations/
 CPC/data/petImages/
-CPC/data/STL-10_binary/
+CPC/data/stl10_binary/
 CPC/TrainedModels/

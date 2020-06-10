@@ -3,7 +3,7 @@ from CPC.models.MobileNetV2_Encoder import MobileNetV2_Encoder
 from CPC.models.mobileNetV2 import MobileNetV2
 from CPC.models.Resnet_Encoder import ResNet_Encoder
 from CPC.models.Resnet import ResNet
-from CPC.data.data_handlers import PetImagesHandler
+from CPC.data.data_handler import get_stl10_dataloader
 
 import torch
 import torch.nn as nn
@@ -26,7 +26,7 @@ def fwd_pass(X, y, train=False):
             outputs = net(X)
 
     # Compute accuracy
-    matches  = [torch.argmax(i) == torch.argmax(j) for i, j in zip(outputs,y)]
+    matches = [torch.argmax(i) == j for i, j in zip(outputs,y)]
     acc = matches.count(True)/len(matches)
 
     # Compute loss
@@ -39,21 +39,21 @@ def fwd_pass(X, y, train=False):
     return loss, acc 
 
 # Train net
-def train(data_handler, epochs, test_size):
+def train(epochs):
     best_acc = 0
     for epoch in range(epochs):
 
-        for batch_img, batch_lbl in tqdm(data_handler):
+        for batch_img, batch_lbl in tqdm(train_loader, dynamic_ncols=True):
             loss, acc = fwd_pass(batch_img.to(device), batch_lbl.to(device), train=True)    
 
-        val_loss, val_acc = test(size=test_size)
+        test_loss, test_acc = test()
 
-        if val_acc > best_acc:
-            best_acc = val_acc
+        if test_acc > best_acc:
+            best_acc = test_acc
 
         print(f"Epoch: {epoch}\n"
                f"Train: {round(float(loss),4)}, {round(float(acc), 4)}\n"
-                f"Test:  {round(float(val_loss),4)}, {round(float(val_acc),4)}")
+                f"Test:  {round(float(test_loss),4)}, {round(float(test_acc),4)}")
 
         scheduler.step()
         
@@ -63,39 +63,18 @@ def train(data_handler, epochs, test_size):
     print(f"Best Accuracy: {round(float(best_acc),4)}")
 
 
-# Process test data to find validation loss/accuracy
-def test(size):
-    # Need to parse in small batches in order to not incur memory error
-    test_img, test_lbl = data_handler.test_batch(batch_size=size)
-    batch_size = 50
-    total_val_acc = 0
-    total_val_loss = 0
+# Process test data to find test loss/accuracy
+def test():
+    total_test_acc = 0
+    total_test_loss = 0
 
-    # In batches process the test data
-    for i in range(size // batch_size):
-        batch_test_img = test_img[batch_size*i:batch_size*(i+1)].to(device)
-        batch_test_lbl = test_lbl[batch_size*i:batch_size*(i+1)].to(device)
-        val_acc, val_loss = fwd_pass(batch_test_img, batch_test_lbl)
-        total_val_acc += val_acc * batch_size
-        total_val_loss += val_loss * batch_size
+    # Process all of the test data
+    for batch_img, batch_lbl in tqdm(test_loader, dynamic_ncols=True):
+        loss, acc = fwd_pass(batch_img.to(device), batch_lbl.to(device))  
+        total_test_acc += acc
+        total_test_loss += loss
 
-        del batch_test_img, batch_test_lbl
-    
-    # Deal with leftover test samples
-    leftover = size % batch_size
-
-    if leftover != 0:
-        batch_test_img = test_img[batch_size*(i+1):].to(device)
-        batch_test_lbl = test_lbl[batch_size*(i+1):].to(device)
-        val_acc, val_loss = fwd_pass(batch_test_img, batch_test_lbl)
-        total_val_acc += val_acc * leftover
-        total_val_loss += val_loss * leftover
-
-        del batch_test_img, batch_test_lbl
-
-
-    return total_val_acc / size, total_val_loss / size
-
+    return total_test_loss / len(test_loader), total_test_acc / len(test_loader)
 
 if __name__ == "__main__":
     PATH = "./CPC/TrainedModels/"
@@ -103,24 +82,22 @@ if __name__ == "__main__":
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_selection = 0
-    epochs = 20
-    batch_size = 35  
+    train_selection = 1
+    epochs = 300
+    batch_size = 100  
 
     # Intitialise data handler
-    data_handler = PetImagesHandler(
-            batch_size=batch_size,
-            train_proportion=0.057,
-            test_proportion=0.05,
-            include_labels=True
-            )
+    _, _, train_loader, _, test_loader, _ = get_stl10_dataloader(batch_size, labeled=True)
 
     if train_selection == 0:
-        print("Training CDC Classifier")
+        print("Training CPC Classifier")
 
         # Load the CPC trained encoder (with classifier layer activated)
         net = ResNet_Encoder(resnet=34, num_classes=2, use_classifier=True).to(device)
-        net.load_state_dict(torch.load(PATH + "trained_cpc_encoder_125.pt"))
+        net.load_state_dict(torch.load(PATH + f"trained_cpc_encoder_{50}.pt"))
+
+        net.classifier = nn.Sequential(nn.Linear(256, 10)) # forgot to change in cpc training
+        
         net = net.to(device)
 
         # Freeze encoder layers
@@ -131,29 +108,23 @@ if __name__ == "__main__":
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=0.1)
 
     elif train_selection == 1:
-        print("Training MobileNet")
+        print("Training Resnet")
 
         # Load the network
-        net = ResNet(resnet=34, num_classes=2).to(device)
+        net = ResNet(resnet=34, num_classes=30).to(device)
         optimizer = optim.Adam(net.parameters(), lr=1e-4)
     
     # Train chosen network
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
-    #scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[1,5], gamma=0.1)
-    loss_function = nn.MSELoss()
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+    #scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[1,4], gamma=0.1)
+    loss_function = nn.NLLLoss()
 
-    train(data_handler=data_handler, epochs=epochs, test_size=1000)
+    train(epochs=epochs)
     
     # Print final test accuracy
-    val_loss, val_acc = test(size=1000)
-    print(f"Final Accuracy: {round(val_acc*100, 2)}%")
+    #val_loss, val_acc = test()
+    #print(f"Final Accuracy: {round(val_acc*100, 2)}%")
 
-# 1%  of ImageNet = 140  images per class (train_proportion = 0.012)
-# 2%  of ImageNet = 280  images per class (train_proportion = 0.023)
-# 5%  of ImageNet = 700  images per class (train_proportion = 0.057)
-# 10% of ImageNet = 1400 images per class (train_proportion = 0.113)
-# 20% of ImageNet = 2800 images per class (train_proportion = 0.225)
-# 50% of ImageNet = 7000 images per class (train_proportion = 0.562)
 
 
 

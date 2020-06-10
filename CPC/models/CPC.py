@@ -26,13 +26,13 @@ class CPC(nn.Module):
 
         # Define Encoder Network
         if enc_model == "resnet34":
-            self.enc = ResNet_Encoder(resnet=34, num_classes=2)
+            self.enc = ResNet_Encoder(resnet=34, num_classes=10)
             self.pred_size = 256
         elif enc_model == "resnet50":
-            self.enc = ResNet_Encoder(resnet=50, num_classes=2)
+            self.enc = ResNet_Encoder(resnet=50, num_classes=10)
             self.pred_size = 1024
         elif enc_model == "mobilenet_v2":
-            self.enc = MobileNetV2_Encoder(num_classes=2)
+            self.enc = MobileNetV2_Encoder(num_classes=10)
             self.pred_size = 1280
         else:
             raise Exception("Undefined encoder choice")

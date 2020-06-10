@@ -1,5 +1,5 @@
 from CPC.models.GIM_CPC import CPC
-from CPC.data.data_handlers import PetImagesHandler
+from CPC.data.data_handler import get_stl10_dataloader
 
 import torch
 import torch.nn as nn
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     batch_size = 32 # paper uses 32 GPUs each with minibatch of 16
     pred_steps = 5 # as in paper
     neg_samples = 16 # this is the defualt used in GIM
-    epochs = 10
+    epochs = 20
 
     # Initialisations
     net = CPC(
@@ -29,48 +29,47 @@ if __name__ == "__main__":
         enc_model="resnet34"
         ).to(device)
 
-    data = PetImagesHandler(
-        batch_size=batch_size, 
-        train_proportion=1, 
-        test_proportion=0,
-        include_labels=False
-        )        
-
+    unsupervised_loader, _, _, _, _, _ = get_stl10_dataloader(batch_size)
     optimizer = optim.Adam(net.parameters(), lr=2e-4) # lr as in paper
 
     # Load saved network
     LOAD_NET = True
     trained_epochs = 0
     if LOAD_NET:
-        trained_epochs = 125
+        trained_epochs = 30
         net.load_state_dict(torch.load(f"{full_cpc_path}_{trained_epochs}.pt"))
 
     # Train the network
-    iter_per_epoch = len(data)
-    print_interval = 5
+    iter_per_epoch = len(unsupervised_loader)
+    print_interval = 100
+    print_interval_stats = False # if False then tqdm is displayed
+    epoch_loss_batches = 200
 
-    for epoch in range(epochs):
+    for epoch in range(trained_epochs+1, trained_epochs+epochs+1):
         prev_time = time.time()
-        avg_loss = 0
+        epoch_loss = 0
 
-        for i, batch in enumerate(data):
+        for i, (batch, lbl) in enumerate(tqdm(unsupervised_loader, disable=print_interval_stats, dynamic_ncols=True)):
             net.zero_grad()
             loss = net(batch.to(device))
             loss.backward()
             optimizer.step()
-            avg_loss += float(loss)
-            
-            if i % print_interval == 0:
-                div = 1 if ( i == 0 ) else print_interval
-                avg_time = (time.time() - prev_time) / (div)
-                prev_time = time.time()
-                print(f'Epoch {epoch}/{epochs-1}, Iteration {i}/{iter_per_epoch-1}, Loss: {round(float(loss),4)}, Time (s): {round(avg_time, 1)} ')
 
-        print(f'Epoch {epoch}/{epochs-1}, Iteration {i}/{i}, Loss: {round(float(avg_loss),4)}, Time (s): {round(avg_time, 1)} ')
+            # Total loss of last n batches
+            if i >= iter_per_epoch - epoch_loss_batches:
+                epoch_loss += float(loss)
+
+            if (i+1) % print_interval == 0 and print_interval_stats:
+                avg_time = (time.time() - prev_time) / print_interval
+                prev_time = time.time()
+                print(f'Epoch {epoch}/{epochs+trained_epochs}, Iteration {i+1}/{iter_per_epoch}, Loss: {round(float(loss),4)}, Time(s): {round(avg_time, 2)}')
+
+        print(f'Epoch {epoch}/{epochs+trained_epochs}, Epoch Loss: {round(float(epoch_loss/epoch_loss_batches),4)}')
             
     # Save the full network and the encoder
-    torch.save(net.state_dict(), f"{full_cpc_path}_{trained_epochs+epochs}.pt")
-    torch.save(net.enc.state_dict(), f"{encoder_path}_{trained_epochs+epochs}.pt")
+    torch.save(net.state_dict(), f"{full_cpc_path}_{epoch}.pt")
+    torch.save(net.enc.state_dict(), f"{encoder_path}_{epoch}.pt")
+
 
         
     
