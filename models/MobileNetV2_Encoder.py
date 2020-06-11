@@ -7,7 +7,6 @@ import torch.nn.functional as F
 # Input channels is 1 instead of 3
 # Option for using classifier
 
-
 def _make_divisible(v, divisor, min_value=None):
     """
     This function is taken from the original tf repo.
@@ -69,13 +68,12 @@ class InvertedResidual(nn.Module):
 
 class MobileNetV2_Encoder(nn.Module):
     def __init__(self,
-                 num_classes=10,
-                 use_classifier=False,
-                 patch_size=16,
-                 width_mult=1.0,
-                 inverted_residual_setting=None,
-                 round_nearest=8,
-                 block=None):
+                args,
+                use_classifier=False,
+                width_mult=1.0,
+                inverted_residual_setting=None,
+                round_nearest=8,
+                block=None):
         """
         MobileNet V2 main class
 
@@ -91,7 +89,7 @@ class MobileNetV2_Encoder(nn.Module):
         super(MobileNetV2_Encoder, self).__init__()
 
         self.use_classifier=use_classifier
-        self.patch_size = patch_size
+        self.patch_size = args.patch_size
 
         if block is None:
             block = InvertedResidual
@@ -134,7 +132,7 @@ class MobileNetV2_Encoder(nn.Module):
         # building classifier
         self.classifier = nn.Sequential(
             nn.Dropout(0.2),
-            nn.Linear(self.last_channel, num_classes),
+            nn.Linear(self.last_channel, args.num_classes),
         )
 
         # weight initialization

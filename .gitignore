@@ -4,6 +4,5 @@
 # Directories to ignore
 *__pycache__/
 _hidden/
-data/petImages/
 data/stl10_binary/
 TrainedModels/

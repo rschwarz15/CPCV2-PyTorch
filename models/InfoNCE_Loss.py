@@ -1,3 +1,4 @@
+# Modified From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/InfoNCE_Loss.py
 
 from models.model_utils import makeDeltaOrthogonal
@@ -13,13 +14,13 @@ import time
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class InfoNCE_Loss(nn.Module):
-    def __init__(self, in_channels, out_channels, negative_samples, pred_steps, weight_init=False):
+    def __init__(self, args, in_channels, weight_init=False):
         super().__init__()
-        self.negative_samples = negative_samples
-        self.pred_steps = pred_steps
+        self.neg_samples = args.neg_samples
+        self.pred_steps = args.pred_steps
 
         self.W_k = nn.ModuleList(
-            nn.Conv2d(in_channels, out_channels, 1, bias=False)
+            nn.Conv2d(in_channels, in_channels, 1, bias=False)
             for _ in range(self.pred_steps)
         )
 
@@ -64,7 +65,7 @@ class InfoNCE_Loss(nn.Module):
             )  # y * x * batch, c
             rand_index = torch.randint(
                 ztwk_shuf.shape[0],  # y *  x * batch
-                (ztwk_shuf.shape[0] * self.negative_samples, 1),
+                (ztwk_shuf.shape[0] * self.neg_samples, 1),
                 dtype=torch.long,
                 device=device,
             )
@@ -79,7 +80,7 @@ class InfoNCE_Loss(nn.Module):
                 ztwk.shape[0],
                 ztwk.shape[1],
                 ztwk.shape[2],
-                self.negative_samples,
+                self.neg_samples,
                 ztwk.shape[3],
             ).permute(
                 0, 1, 2, 4, 3

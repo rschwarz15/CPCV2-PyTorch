@@ -1,5 +1,5 @@
-#From:
-#https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/data/get_dataloader.py
+# Based On:
+# https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/data/get_dataloader.py
 
 import torch
 import torchvision.transforms as transforms
@@ -24,22 +24,20 @@ aug = {
         "bw_std": [0.2570],
     },  # values for labeled train set: mean [0.4469, 0.4400, 0.4069], std [0.2603, 0.2566, 0.2713]
     "cifar10": {
-        "randcrop": 64,
         "rand_horizontal_flip": True,
         "grayscale": True,
-        "mean": [0.4313, 0.4156, 0.3663],  # values for train+unsupervised combined
-        "std": [0.2683, 0.2610, 0.2687],
-        "bw_mean": [0.4120],  # values for train+unsupervised combined
-        "bw_std": [0.2570],
+        "mean": [0.0, 0.0, 0.0],
+        "std": [0.0, 0.0, 0.0],
+        "bw_mean": [0.0],
+        "bw_std": [0.0],
     },
     "cifar100": {
-        "randcrop": 64,
         "rand_horizontal_flip": True,
         "grayscale": True,
-        "mean": [0.4313, 0.4156, 0.3663],  # values for train+unsupervised combined
-        "std": [0.2683, 0.2610, 0.2687],
-        "bw_mean": [0.4120],  # values for train+unsupervised combined
-        "bw_std": [0.2570],
+        "mean": [0.0, 0.0, 0.0],
+        "std": [0.0, 0.0, 0.0],
+        "bw_mean": [0.0],
+        "bw_std": [0.0],
     }
 }
 
@@ -119,6 +117,14 @@ def get_stl10_dataloader(batch_size, labeled=False, validate=False, download_dat
         test_loader,
         test_dataset,
     )
+
+
+def get_cifar10_dataloader(batch_size, labeled=False, validate=False, download_dataset=False):
+    return None
+
+
+def get_cifar100_dataloader(batch_size, labeled=False, validate=False, download_dataset=False):
+    return None
 
 
 def create_validation_sampler(dataset_size):

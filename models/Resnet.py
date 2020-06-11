@@ -1,4 +1,4 @@
-# From:
+# Modified From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
 
 from models.model_utils import makeDeltaOrthogonal
@@ -70,8 +70,7 @@ class PreActBottleneckNoBN(nn.Module):
 class ResNet(nn.Module):
     def __init__(
         self,
-        resnet,
-        num_classes,
+        args,
         weight_init=False,
         input_dims=1,
         num_blocks=[3, 4, 6, 6, 6, 6, 6],
@@ -79,9 +78,9 @@ class ResNet(nn.Module):
     ):
         super(ResNet, self).__init__()
         
-        if resnet == 34:
+        if args.encoder == "resnet34":
             self.block = PreActBlockNoBN
-        elif resnet == 50:
+        elif args.encoder == "resnet50":
             self.block = PreActBottleneckNoBN
         else:
             raise Exception("Undefined resnet choice")
@@ -112,7 +111,7 @@ class ResNet(nn.Module):
         # Additional Classifier 
         self.classifier = nn.Sequential(
             #nn.Dropout(0.2),
-            nn.Linear(self.filter[-1] * self.block.expansion, num_classes)
+            nn.Linear(self.filter[-1] * self.block.expansion, args.num_classes)
         )
 
         if weight_init:

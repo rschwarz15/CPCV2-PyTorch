@@ -1,4 +1,4 @@
-# From:
+# Modified From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN.py
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN_Autoregressor.py
 
