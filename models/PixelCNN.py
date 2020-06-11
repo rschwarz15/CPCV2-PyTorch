@@ -2,8 +2,7 @@
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN.py
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN_Autoregressor.py
 
-from CPC.models.model_utils import makeDeltaOrthogonal
-#from model_utils import makeDeltaOrthogonal
+from models.model_utils import makeDeltaOrthogonal
 
 import torch
 import torch.nn as nn

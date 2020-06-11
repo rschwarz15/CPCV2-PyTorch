@@ -13,27 +13,42 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
-def get_stl10_dataloader(batch_size, labeled=False, validate=False, download_dataset=False):
-    base_folder = "CPC\data\stl10_binary"
+aug = {
+    "stl10": {
+        "randcrop": 64,
+        "rand_horizontal_flip": True,
+        "grayscale": True,
+        "mean": [0.4313, 0.4156, 0.3663],  # values for train+unsupervised combined
+        "std": [0.2683, 0.2610, 0.2687],
+        "bw_mean": [0.4120],  # values for train+unsupervised combined
+        "bw_std": [0.2570],
+    },  # values for labeled train set: mean [0.4469, 0.4400, 0.4069], std [0.2603, 0.2566, 0.2713]
+    "cifar10": {
+        "randcrop": 64,
+        "rand_horizontal_flip": True,
+        "grayscale": True,
+        "mean": [0.4313, 0.4156, 0.3663],  # values for train+unsupervised combined
+        "std": [0.2683, 0.2610, 0.2687],
+        "bw_mean": [0.4120],  # values for train+unsupervised combined
+        "bw_std": [0.2570],
+    },
+    "cifar100": {
+        "randcrop": 64,
+        "rand_horizontal_flip": True,
+        "grayscale": True,
+        "mean": [0.4313, 0.4156, 0.3663],  # values for train+unsupervised combined
+        "std": [0.2683, 0.2610, 0.2687],
+        "bw_mean": [0.4120],  # values for train+unsupervised combined
+        "bw_std": [0.2570],
+    }
+}
 
-    if labeled:
-        training_dataset = "train"
-    else:
-        training_dataset = "unlabeled"
+def get_stl10_dataloader(batch_size, labeled=False, validate=False, download_dataset=False):
+    base_folder = "data\stl10_binary"
 
     num_workers = 0
 
-    aug = {
-        "stl10": {
-            "randcrop": 64,
-            "rand_horizontal_flip": True,
-            "grayscale": True,
-            "mean": [0.4313, 0.4156, 0.3663],  # values for train+unsupervised combined
-            "std": [0.2683, 0.2610, 0.2687],
-            "bw_mean": [0.4120],  # values for train+unsupervised combined
-            "bw_std": [0.2570],
-        }  # values for labeled train set: mean [0.4469, 0.4400, 0.4069], std [0.2603, 0.2566, 0.2713]
-    }
+    # Define Transforms
     transform_train = transforms.Compose(
         [get_transforms(eval=False, aug=aug["stl10"])]
     )
@@ -41,33 +56,24 @@ def get_stl10_dataloader(batch_size, labeled=False, validate=False, download_dat
         [get_transforms(eval=True, aug=aug["stl10"])]
     )
 
+    # Get Datasets
     unsupervised_dataset = torchvision.datasets.STL10(
-        base_folder,
-        split="unlabeled",
-        transform=transform_train,
-        download=download_dataset,
+        base_folder, split="unlabeled", transform=transform_train, download=download_dataset
     )
-
     train_dataset = torchvision.datasets.STL10(
         base_folder, split="train", transform=transform_train, download=download_dataset
     )
-
     test_dataset = torchvision.datasets.STL10(
         base_folder, split="test", transform=transform_valid, download=download_dataset
     )
 
-    # default dataset loaders
+    # Get DataLoaders
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
-
     unsupervised_loader = torch.utils.data.DataLoader(
-        unsupervised_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
+        unsupervised_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers,
     )
-
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
@@ -76,15 +82,14 @@ def get_stl10_dataloader(batch_size, labeled=False, validate=False, download_dat
     if validate:
         print("Use train / val split")
 
+        training_dataset = "train" if labeled else "unlabeled"
+
         if training_dataset == "train":
             dataset_size = len(train_dataset)
             train_sampler, valid_sampler = create_validation_sampler(dataset_size)
 
             train_loader = torch.utils.data.DataLoader(
-                train_dataset,
-                batch_size=batch_size,
-                sampler=train_sampler,
-                num_workers=num_workers,
+                train_dataset, batch_size=batch_size, sampler=train_sampler, num_workers=num_workers,
             )
 
         elif training_dataset == "unlabeled":
@@ -92,25 +97,15 @@ def get_stl10_dataloader(batch_size, labeled=False, validate=False, download_dat
             train_sampler, valid_sampler = create_validation_sampler(dataset_size)
 
             unsupervised_loader = torch.utils.data.DataLoader(
-                unsupervised_dataset,
-                batch_size=batch_size,
-                sampler=train_sampler,
-                num_workers=num_workers,
+                unsupervised_dataset, batch_size=batch_size, sampler=train_sampler, num_workers=num_workers,
             )
 
         # overwrite test_dataset and _loader with validation set
         test_dataset = torchvision.datasets.STL10(
-            base_folder,
-            split=training_dataset,
-            transform=transform_valid,
-            download=download_dataset,
+            base_folder, split=training_dataset, transform=transform_valid, download=download_dataset,
         )
-
         test_loader = torch.utils.data.DataLoader(
-            test_dataset,
-            batch_size=batch_size,
-            sampler=valid_sampler,
-            num_workers=num_workers,
+            test_dataset, batch_size=batch_size, sampler=valid_sampler, num_workers=num_workers,
         )
 
     else:

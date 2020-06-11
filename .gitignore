@@ -3,7 +3,7 @@
 
 # Directories to ignore
 *__pycache__/
-observations/
-CPC/data/petImages/
-CPC/data/stl10_binary/
-CPC/TrainedModels/
+_hidden/
+data/petImages/
+data/stl10_binary/
+TrainedModels/

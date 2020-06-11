@@ -1,9 +1,9 @@
-from CPC.models.CPC import CPC
-from CPC.models.MobileNetV2_Encoder import MobileNetV2_Encoder
-from CPC.models.mobileNetV2 import MobileNetV2
-from CPC.models.Resnet_Encoder import ResNet_Encoder
-from CPC.models.Resnet import ResNet
-from CPC.data.data_handler import get_stl10_dataloader
+from models.CPC import CPC
+from models.MobileNetV2_Encoder import MobileNetV2_Encoder
+from models.mobileNetV2 import MobileNetV2
+from models.Resnet_Encoder import ResNet_Encoder
+from models.Resnet import ResNet
+from data.data_handlers import get_stl10_dataloader
 
 import torch
 import torch.nn as nn
@@ -77,14 +77,16 @@ def test():
     return total_test_loss / len(test_loader), total_test_acc / len(test_loader)
 
 if __name__ == "__main__":
-    PATH = "./CPC/TrainedModels/"
+    PATH = "TrainedModels/"
     IMG_SIZE = 256
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_selection = 1
-    epochs = 300
+    # Arguments (to be moved into arg_parser)
+    train_selection = 0 # 0 = CPC, 1 = Fully Supervised 
+    epochs = 90
     batch_size = 100  
+    dataset = "stl10"
 
     # Intitialise data handler
     _, _, train_loader, _, test_loader, _ = get_stl10_dataloader(batch_size, labeled=True)
@@ -94,7 +96,7 @@ if __name__ == "__main__":
 
         # Load the CPC trained encoder (with classifier layer activated)
         net = ResNet_Encoder(resnet=34, num_classes=2, use_classifier=True).to(device)
-        net.load_state_dict(torch.load(PATH + f"trained_cpc_encoder_{50}.pt"))
+        net.load_state_dict(torch.load(PATH + f"/{dataset}/trained_cpc_encoder_{50}.pt"))
 
         net.classifier = nn.Sequential(nn.Linear(256, 10)) # forgot to change in cpc training
         
@@ -111,19 +113,21 @@ if __name__ == "__main__":
         print("Training Resnet")
 
         # Load the network
-        net = ResNet(resnet=34, num_classes=30).to(device)
+        net = ResNet(resnet=34, num_classes=15).to(device)
         optimizer = optim.Adam(net.parameters(), lr=1e-4)
     
-    # Train chosen network
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+    # Train network
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
     #scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[1,4], gamma=0.1)
     loss_function = nn.NLLLoss()
 
-    train(epochs=epochs)
+    try:
+        train(epochs=epochs)
+    except KeyboardInterrupt:
+        print("\nEnding Program on Keyboard Interrupt")
+
+        # save things
     
-    # Print final test accuracy
-    #val_loss, val_acc = test()
-    #print(f"Final Accuracy: {round(val_acc*100, 2)}%")
 
 
 

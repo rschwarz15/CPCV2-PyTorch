@@ -69,8 +69,9 @@ class InvertedResidual(nn.Module):
 
 class MobileNetV2_Encoder(nn.Module):
     def __init__(self,
-                 num_classes=1000,
+                 num_classes=10,
                  use_classifier=False,
+                 patch_size=16,
                  width_mult=1.0,
                  inverted_residual_setting=None,
                  round_nearest=8,
@@ -90,6 +91,7 @@ class MobileNetV2_Encoder(nn.Module):
         super(MobileNetV2_Encoder, self).__init__()
 
         self.use_classifier=use_classifier
+        self.patch_size = patch_size
 
         if block is None:
             block = InvertedResidual
@@ -172,6 +174,7 @@ class MobileNetV2_Encoder(nn.Module):
         z = self.features(x)
         # Cannot use "squeeze" as batch-size can be 1 => must use reshape with z.shape[0]
         z = nn.functional.adaptive_avg_pool2d(z, 1).reshape(z.shape[0], -1)
+        z = z.reshape(-1, n_patches_x, n_patches_y, z.shape[1]) 
 
         ### Use classifier if specified
         if self.use_classifier:
@@ -186,15 +189,3 @@ class MobileNetV2_Encoder(nn.Module):
 
     def forward(self, x):
         return self._forward_impl(x)
-
-
-if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    net = MobileNetV2_Encoder().to(device)
-    print(net)
-
-    x = torch.randn(49, 1, 16, 16).to(device)
-    out = net(x)
-
-    print(out)
