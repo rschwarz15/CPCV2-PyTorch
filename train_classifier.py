@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
+import os
 
 # Process a batch, return accuracy and loss
 def fwd_pass(X, y, train=False):
@@ -55,15 +56,15 @@ def train():
             best_epoch = epoch
 
         print(f"Epoch: {epoch}/{args.epochs}\n"
-               f"Train: {round(float(loss),4)}, {round(float(acc*100), 2)}%\n"
-                f"Test:  {round(float(test_loss),4)}, {round(float(test_acc*100), 2)}%")
+              f"Train: {loss:.4f}, {acc*100:.2f}%\n"
+              f"Test:  {test_loss:.4f}, {test_acc*100:.2f}%")
 
         scheduler.step()
         
         # for param_group in optimizer.param_groups:
         #     print(param_group['lr'])
     
-    print(f"Best Accuracy: {round(float(best_acc),4)} - epoch {best_epoch}")
+    print(f"Best Accuracy: {best_acc:.4f} - epoch {best_epoch}")
 
 
 # Process test data to find test loss/accuracy
@@ -85,7 +86,7 @@ if __name__ == "__main__":
 
     # Get selected dataset
     if args.dataset == "stl10":
-        _, _, train_loader, _, test_loader, _ = get_stl10_dataloader(args.batch_size, labeled=True)
+        _, _, train_loader, _, test_loader, _ = get_stl10_dataloader(args, labeled=True)
     elif args.dataset == "cifar10":
         raise NotImplementedError
     elif args.dataset == "cifar100":
@@ -108,7 +109,7 @@ if __name__ == "__main__":
         else:
             raise Exception("Invalid Argument")
         
-        encoder_path = f"TrainedModels/{args.dataset}/trained_encoder"
+        encoder_path = os.path.join("TrainedModels", {args.dataset}, "trained_encoder")
         net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.model_num}.pt"))        
         net = net.to(args.device)
 

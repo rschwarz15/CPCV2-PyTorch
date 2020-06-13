@@ -11,8 +11,6 @@ import torch.nn.functional as F
 import numpy as np
 import time
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 class InfoNCE_Loss(nn.Module):
     def __init__(self, args, in_channels, weight_init=False):
         super().__init__()
@@ -45,8 +43,8 @@ class InfoNCE_Loss(nn.Module):
 
     def forward(self, z, c, skip_step=1):
         batch_size = z.shape[0]
-
         total_loss = 0
+        cur_device = z.get_device()
 
         # For each element in c, contrast with elements below
         for k in range(1, self.pred_steps + 1):
@@ -67,7 +65,7 @@ class InfoNCE_Loss(nn.Module):
                 ztwk_shuf.shape[0],  # y *  x * batch
                 (ztwk_shuf.shape[0] * self.neg_samples, 1),
                 dtype=torch.long,
-                device=device,
+                device=cur_device,
             )
             # Sample more
             rand_index = rand_index.repeat(1, ztwk_shuf.shape[1])
@@ -105,7 +103,7 @@ class InfoNCE_Loss(nn.Module):
             true_f = torch.zeros(
                 (batch_size, log_fk.shape[-2], log_fk.shape[-1]),
                 dtype=torch.long,
-                device=device,
+                device=cur_device,
             )  # b, y, x
 
             total_loss += self.contrast_loss(input=log_fk, target=true_f)

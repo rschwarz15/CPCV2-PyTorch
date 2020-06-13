@@ -14,6 +14,7 @@ def argparser():
     parser.add_argument('--neg_samples',         type=int,   metavar='', default=16,         help="Number of Negative Samples for InfoNCE Loss")
     parser.add_argument('--encoder',             type=str,   metavar='', default="resnet34", help="Which encoder to use (resnet34, resnet50, mobilenetV2)")
     parser.add_argument('--print_option',        type=int,   metavar='', default=0,          help="How results are displayed whilst training (0=tqdm, 1=interval statistics)")
+    parser.add_argument('--download_dataset',    action='store_true',    default=0,          help="Download the chosen dataset")
 
     args = parser.parse_args()
 
