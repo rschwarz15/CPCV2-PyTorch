@@ -4,5 +4,9 @@
 # Directories to ignore
 *__pycache__/
 _hidden/
-data/stl10_binary/
-TrainedModels/
+data/stl10/
+data/cifar10/
+data/cifar100/
+TrainedModels/cifar10/*
+TrainedModels/cifar100/*
+TrainedModels/stl10/*

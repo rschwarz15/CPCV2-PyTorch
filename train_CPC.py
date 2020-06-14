@@ -1,5 +1,5 @@
 from models.CPC import CPC
-from data.data_handlers import get_stl10_dataloader
+from data.data_handlers import *
 from argparser.train_CPC_argparser import argparser
 
 import torch
@@ -14,7 +14,6 @@ import os
 
 def train():
     iter_per_epoch = len(unsupervised_loader)
-    print_interval = 100
     epoch_loss_batches = 200
 
     for epoch in range(args.trained_epochs+1, args.trained_epochs+args.epochs+1):
@@ -32,13 +31,13 @@ def train():
             if i >= iter_per_epoch - epoch_loss_batches:
                 epoch_loss += float(loss)
 
-            if ( (i+1) % print_interval == 0 or i == 0 ) and args.print_option:
+            if ( (i+1) % args.print_interval == 0 or i == 0 ) and args.print_option == 1:
                 if i == 0:
                     div = 1
-                elif i+1 == print_interval:
-                    div = print_interval - 1
+                elif i+1 == args.print_interval:
+                    div = args.print_interval - 1
                 else:
-                    div = print_interval
+                    div = args.print_interval
 
                 avg_time = (time.time() - prev_time) / div
                 prev_time = time.time()
@@ -54,7 +53,7 @@ def train():
                         avg_time
                     )
                 )
-
+        
         # Results at end of epoch         
         print(
             'Epoch {}/{}, Epoch Loss: {:.4f}'.format(
@@ -63,11 +62,14 @@ def train():
                 epoch_loss/epoch_loss_batches,
             )
         )
-        f.write(f'{epoch},{epoch_loss/epoch_loss_batches:.4f}\n')
 
   
 def distribute_over_GPUs(args, net):
     num_GPU = torch.cuda.device_count()
+
+    if num_GPU == 0:
+        raise Exception("No point training without GPU")
+
     args.batch_size = args.batch_size * num_GPU
     print(f"Running on {num_GPU} GPU(s)")
 
@@ -81,19 +83,29 @@ if __name__ == "__main__":
 
     cpc_path = os.path.join("TrainedModels", args.dataset, "trained_cpc")
     encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
-    log_path = os.path.join("TrainedModels", args.dataset, f"training_log_{args.encoder}_{args.trained_epochs+args.epochs}.txt")
-    f = open(log_path, "w")
 
-    # Initialisations
+    # Define Network
     net = CPC(args)
-    net = distribute_over_GPUs(args, net)
-    
-    unsupervised_loader, _, _, _, _, _ = get_stl10_dataloader(args)
-    optimizer = optim.Adam(net.parameters(), lr=args.lr) 
-
-    # Load saved network
     if args.trained_epochs:
         net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.trained_epochs}.pt"))
+    net = distribute_over_GPUs(args, net)
+            
+    # Freeze classifier layer - save memory
+    for name, param in net.named_parameters():
+        if "classifier" in name:
+            param.requires_grad = False
+
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr) 
+
+    # Get selected dataset
+    if args.dataset == "stl10":
+        unsupervised_loader, _, _ = get_stl10_dataloader(args)
+    elif args.dataset == "cifar10":
+        unsupervised_loader, _, _ = get_cifar10_dataloader(args)
+    elif args.dataset == "cifar100":
+        unsupervised_loader, _, _ = get_cifar100_dataloader(args)
+    else:
+        raise Exception("Invalid Argument")
 
     # Train the network
     ext = ""
@@ -104,9 +116,9 @@ if __name__ == "__main__":
         ext = "_incomplete"
             
     # Save the full network and the encoder
+    net = net.module # unwrap DataParallel
     torch.save(net.state_dict(), f"{cpc_path}_{args.encoder}_{args.trained_epochs+args.epochs}{ext}.pt")
     torch.save(net.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.trained_epochs+args.epochs}{ext}.pt")
-    f.close()
 
 
         

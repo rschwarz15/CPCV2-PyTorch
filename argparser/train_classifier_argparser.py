@@ -5,7 +5,8 @@ def argparser():
     parser = argparse.ArgumentParser(description="Training Classifier")
 
     # optional
-    parser.add_argument('--dataset',             type=str,   metavar='', default="stl10",    help="Dataset to Use (stl10, cifar10, cifar100")
+    parser.add_argument('--dataset',             type=str,   metavar='', default="stl10",    help="Dataset to Use (stl10, cifar10, cifar100)")
+    parser.add_argument('--train_size',          type=int,   metavar='', default=50000,      help="When using cifar this sets the size of the training data")
     parser.add_argument('--epochs',              type=int,   metavar='', default=60,         help="Number of Epochs for Training")
     parser.add_argument('--batch_size',          type=int,   metavar='', default=100,        help="Batch Size")
     parser.add_argument('--lr',                  type=float, metavar='', default=0.1,        help="Learning Rate")
@@ -22,10 +23,8 @@ def argparser():
         args.num_classes, args.patch_size = 10, 16
     elif args.dataset == "cifar10":
         args.num_classes, args.patch_size = 10, 8
-        raise NotImplementedError
     elif args.dataset == "cifar100":
         args.num_classes, args.patch_size = 100, 8
-        raise NotImplementedError
     else:
         raise Exception("Invalid Argument")
 

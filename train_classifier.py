@@ -3,7 +3,7 @@ from models.MobileNetV2_Encoder import MobileNetV2_Encoder
 from models.mobileNetV2 import MobileNetV2
 from models.Resnet_Encoder import ResNet_Encoder
 from models.Resnet import ResNet
-from data.data_handlers import get_stl10_dataloader
+from data.data_handlers import *
 from argparser.train_classifier_argparser import argparser
 
 import torch
@@ -86,11 +86,11 @@ if __name__ == "__main__":
 
     # Get selected dataset
     if args.dataset == "stl10":
-        _, _, train_loader, _, test_loader, _ = get_stl10_dataloader(args, labeled=True)
+        _, train_loader, test_loader = get_stl10_dataloader(args, labeled=True)
     elif args.dataset == "cifar10":
-        raise NotImplementedError
+        _, train_loader, test_loader = get_cifar10_dataloader(args)
     elif args.dataset == "cifar100":
-        raise NotImplementedError
+        _, train_loader, test_loader = get_cifar100_dataloader(args)
     else:
         raise Exception("Invalid Argument")
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         else:
             raise Exception("Invalid Argument")
         
-        encoder_path = os.path.join("TrainedModels", {args.dataset}, "trained_encoder")
+        encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
         net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.model_num}.pt"))        
         net = net.to(args.device)
 
