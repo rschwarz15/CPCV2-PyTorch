@@ -1,6 +1,6 @@
 from models.PixelCNN import PixelCNN
 from models.MobileNetV2_Encoder import MobileNetV2_Encoder    
-from models.Resnet_Encoder import ResNet_Encoder
+from models.ResnetV2_Encoder import PreActResNetN_Encoder
 from models.InfoNCE_Loss import InfoNCE_Loss
 
 import os
@@ -19,11 +19,11 @@ class CPC(nn.Module):
         super().__init__()
 
         # Define Encoder Network
-        if args.encoder == "resnet34":
-            self.enc = ResNet_Encoder(args)
+        if args.encoder in ("resnet18", "resnet34"):
+            self.enc = PreActResNetN_Encoder(args, use_classifier=False)
             self.pred_size = 256
-        elif args.encoder == "resnet50":
-            self.enc = ResNet_Encoder(args)
+        elif args.encoder in ("resnet50", "resent101", "resnet152"):
+            self.enc = PreActResNetN_Encoder(args, use_classifier=False)
             self.pred_size = 1024
         elif args.encoder == "mobilenetV2":
             self.enc = MobileNetV2_Encoder(args)

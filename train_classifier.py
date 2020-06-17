@@ -1,8 +1,7 @@
-from models.CPC import CPC
 from models.MobileNetV2_Encoder import MobileNetV2_Encoder
 from models.mobileNetV2 import MobileNetV2
-from models.Resnet_Encoder import ResNet_Encoder
-from models.Resnet import ResNet
+from models.ResnetV2_Encoder import PreActResNetN_Encoder
+from models.ResNetV2 import PreActResNetN
 from data.data_handlers import *
 from argparser.train_classifier_argparser import argparser
 
@@ -102,8 +101,8 @@ if __name__ == "__main__":
             raise Exception("For Training CPC model_num needs to be set")
 
         # Load the CPC trained encoder (with classifier layer activated)
-        if args.encoder in ("resnet34", "resnet50") :
-            net = ResNet_Encoder(args, use_classifier=True).to(args.device)
+        if args.encoder[:6] == "resnet":
+            net = PreActResNetN_Encoder(args, use_classifier=True).to(args.device)
         elif args.encoder == "mobielnetV2":
             net = MobileNetV2_Encoder(args, use_classifier=True).to(args.device)
         else:
@@ -124,15 +123,15 @@ if __name__ == "__main__":
         print("Training Fully Supervised")
 
         # Load the network        
-        if args.encoder in ("resnet34", "resnet50"):
-            net = ResNet(args).to(args.device)
+        if args.encoder[:6] == "resnet":
+            net = PreActResNetN(args).to(args.device)
         elif args.encoder == "mobilenetV2":
             net = MobileNetV2(num_classes=args.num_classes).to(args.device)
         else:
             raise Exception("Invalid Argument")
 
         optimizer = optim.Adam(net.parameters(), lr=args.lr)
-    
+
     # Train network
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step_size, gamma=0.1)
     loss_function = nn.NLLLoss()

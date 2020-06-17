@@ -12,7 +12,7 @@ def argparser():
     parser.add_argument('--lr',                  type=float, metavar='', default=2e-4,       help="Learning Rate")
     parser.add_argument('--pred_steps',          type=int,   metavar='', default=5,          help="Number of Predictions Steps")
     parser.add_argument('--neg_samples',         type=int,   metavar='', default=16,         help="Number of Negative Samples for InfoNCE Loss")
-    parser.add_argument('--encoder',             type=str,   metavar='', default="resnet34", help="Which encoder to use (resnet34, resnet50, mobilenetV2)")
+    parser.add_argument('--encoder',             type=str,   metavar='', default="resnet50", help="Which encoder to use (resnet18/34/50/101/152, mobilenetV2)")
     parser.add_argument('--print_option',        type=int,   metavar='', default=0,          help="How results are displayed whilst training (0=tqdm, 1=interval statistics, other=End of Epoch only)")
     parser.add_argument('--print_interval',      type=int,   metavar='', default=500,        help="When print_option = 1, this determines how often to print")
     parser.add_argument('--download_dataset',    action='store_true',    default=0,          help="Download the chosen dataset")

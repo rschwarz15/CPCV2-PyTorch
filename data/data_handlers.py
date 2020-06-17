@@ -110,10 +110,10 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
 
 
 def get_cifar_dataloader(args, cifar_classes):
+    num_workers = 0
+
     if cifar_classes == 10:
         data_path = os.path.join("data", "cifar10")
-
-        num_workers = 0
 
         # Define Transforms
         transform_train = transforms.Compose([get_transforms(eval=False, aug=aug["cifar10"])])
@@ -129,8 +129,6 @@ def get_cifar_dataloader(args, cifar_classes):
 
     if cifar_classes == 100:
         data_path = os.path.join("data", "cifar100")
-
-        num_workers = 0
 
         # Define Transforms
         transform_train = transforms.Compose([get_transforms(eval=False, aug=aug["cifar100"])])
