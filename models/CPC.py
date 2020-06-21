@@ -28,8 +28,6 @@ class CPC(nn.Module):
         elif args.encoder == "mobilenetV2":
             self.enc = MobileNetV2_Encoder(args)
             self.pred_size = 1280
-        else:
-            raise Exception("Undefined encoder choice")
 
         # Define Autoregressive Network
         self.ar = PixelCNN(in_channels=self.pred_size)

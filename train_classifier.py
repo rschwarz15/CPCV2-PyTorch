@@ -39,6 +39,7 @@ def fwd_pass(X, y, train=False):
 
     return loss, acc 
 
+
 # Train net
 def train():
     best_acc = 0
@@ -63,7 +64,7 @@ def train():
         # for param_group in optimizer.param_groups:
         #     print(param_group['lr'])
     
-    print(f"Best Accuracy: {best_acc:.4f} - epoch {best_epoch}")
+    print(f"Best Accuracy: {best_acc*100:.2f} - epoch {best_epoch}")
 
 
 # Process test data to find test loss/accuracy
@@ -79,6 +80,7 @@ def test():
 
     return total_test_loss / len(test_loader), total_test_acc / len(test_loader)
 
+
 if __name__ == "__main__":
     args = argparser()
     print(f"Running on {args.device}")
@@ -90,11 +92,9 @@ if __name__ == "__main__":
         _, train_loader, test_loader = get_cifar10_dataloader(args)
     elif args.dataset == "cifar100":
         _, train_loader, test_loader = get_cifar100_dataloader(args)
-    else:
-        raise Exception("Invalid Argument")
 
     # Define network and optimizer for given train_selection
-    if args.train_selection == 0:
+    if not args.fully_supervised:
         print("Training CPC Classifier")
 
         if args.model_num == -1:
@@ -105,8 +105,6 @@ if __name__ == "__main__":
             net = PreActResNetN_Encoder(args, use_classifier=True).to(args.device)
         elif args.encoder == "mobielnetV2":
             net = MobileNetV2_Encoder(args, use_classifier=True).to(args.device)
-        else:
-            raise Exception("Invalid Argument")
         
         encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
         net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.model_num}.pt"))        
@@ -119,7 +117,7 @@ if __name__ == "__main__":
 
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr)
 
-    elif args.train_selection == 1:
+    else:
         print("Training Fully Supervised")
 
         # Load the network        
@@ -127,19 +125,21 @@ if __name__ == "__main__":
             net = PreActResNetN(args).to(args.device)
         elif args.encoder == "mobilenetV2":
             net = MobileNetV2(num_classes=args.num_classes).to(args.device)
-        else:
-            raise Exception("Invalid Argument")
 
         optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
-    # Train network
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step_size, gamma=0.1)
+    # define scheduler based on argument inputs
+    if len(args.sched_milestones) == 0:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.sched_step_size, gamma=0.1)
+    else:
+        milestones = args.sched_milestones.split(',')
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=0.1)
     loss_function = nn.NLLLoss()
 
     try:
         train()
     except KeyboardInterrupt:
-        print("\nEnding Program on Keyboard Interrupt - Should save things")
+        print("\nEnding Program on Keyboard Interrupt")
 
     
 

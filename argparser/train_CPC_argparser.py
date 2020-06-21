@@ -2,20 +2,24 @@ import argparse
 import torch
 
 def argparser():
-    parser = argparse.ArgumentParser(description="Training CPC")
+    parser = argparse.ArgumentParser(
+        description="Training CPC",
+    )
 
     # optional
-    parser.add_argument('--dataset',             type=str,   metavar='', default="stl10",    help="Dataset to Use (stl10, cifar10, cifar100")
-    parser.add_argument('--epochs',              type=int,   metavar='', default=10,         help="Number of Epochs for Training")
-    parser.add_argument('--trained_epochs',      type=int,   metavar='', default=0,          help="Number of epochs already trained, will load from TrainedModels")
-    parser.add_argument('--batch_size',          type=int,   metavar='', default=32,         help="Batch Size")
-    parser.add_argument('--lr',                  type=float, metavar='', default=2e-4,       help="Learning Rate")
-    parser.add_argument('--pred_steps',          type=int,   metavar='', default=5,          help="Number of Predictions Steps")
-    parser.add_argument('--neg_samples',         type=int,   metavar='', default=16,         help="Number of Negative Samples for InfoNCE Loss")
-    parser.add_argument('--encoder',             type=str,   metavar='', default="resnet50", help="Which encoder to use (resnet18/34/50/101/152, mobilenetV2)")
-    parser.add_argument('--print_option',        type=int,   metavar='', default=0,          help="How results are displayed whilst training (0=tqdm, 1=interval statistics, other=End of Epoch only)")
-    parser.add_argument('--print_interval',      type=int,   metavar='', default=500,        help="When print_option = 1, this determines how often to print")
-    parser.add_argument('--download_dataset',    action='store_true',    default=0,          help="Download the chosen dataset")
+    parser.add_argument('--dataset',          type=str,   metavar='', default="stl10",    help="Dataset to Use (stl10, cifar10, cifar100)")
+    parser.add_argument('--epochs',           type=int,   metavar='', default=10,         help="Number of Epochs for Training")
+    parser.add_argument('--trained_epochs',   type=int,   metavar='', default=0,          help="Number of epochs already trained, will load from TrainedModels")
+    parser.add_argument('--batch_size',       type=int,   metavar='', default=32,         help="Batch Size")
+    parser.add_argument('--lr',               type=float, metavar='', default=2e-4,       help="Learning Rate")
+    parser.add_argument('--pred_steps',       type=int,   metavar='', default=5,          help="Number of Predictions Steps")
+    parser.add_argument('--neg_samples',      type=int,   metavar='', default=16,         help="Number of Negative Samples for InfoNCE Loss")
+    parser.add_argument('--encoder',          type=str,   metavar='', default="resnet50", help="Which encoder to use (resnet18/34/50/101/152, mobilenetV2)")
+    parser.add_argument('--norm',             type=str,   metavar='', default="none",     help="What normalisation layer to use (none, batch, layer)")
+    parser.add_argument('--print_option',     type=int,   metavar='', default=0,          help="How results are displayed whilst training (0=tqdm, 1=interval statistics, other=End of Epoch only)")
+    parser.add_argument('--print_interval',   type=int,   metavar='', default=500,        help="When print_option = 1, this determines how often to print")
+    
+    parser.add_argument('--download_dataset', action='store_true',                        help="Download the chosen dataset")
 
     args = parser.parse_args()
 
@@ -30,6 +34,10 @@ def argparser():
         raise Exception("Invalid Dataset Input")
 
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Check encoder choice
+    if args.encoder not in ("resnet18", "resnet34", "resnet50", "resent101", "resnet152", "mobilenetV2"):
+        raise Exception("Invalid Encoder Input")
 
     return args
     

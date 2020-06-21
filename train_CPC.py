@@ -20,7 +20,7 @@ def train():
         prev_time = time.time()
         epoch_loss = 0
 
-        for i, (batch, lbl) in enumerate(tqdm(unsupervised_loader, disable=args.print_option, dynamic_ncols=True)):
+        for i, (batch, _) in enumerate(tqdm(unsupervised_loader, disable=args.print_option, dynamic_ncols=True)):
             net.zero_grad()
             loss = net(batch.to(args.device))
             loss = torch.mean(loss, 0) # take mean over all GPUs
@@ -104,9 +104,7 @@ if __name__ == "__main__":
         unsupervised_loader, _, _ = get_cifar10_dataloader(args)
     elif args.dataset == "cifar100":
         unsupervised_loader, _, _ = get_cifar100_dataloader(args)
-    else:
-        raise Exception("Invalid Argument")
-
+    
     # Train the network
     ext = ""
     try:

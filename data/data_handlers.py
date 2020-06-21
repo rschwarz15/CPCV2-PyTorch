@@ -167,6 +167,7 @@ def get_cifar_dataloader(args, cifar_classes):
 
     return (unsupervised_loader, train_loader, test_loader)
 
+
 def get_cifar10_dataloader(args):
     unsupervised_loader, train_loader, test_loader = get_cifar_dataloader(args, 10)
     return (unsupervised_loader, train_loader, test_loader)
