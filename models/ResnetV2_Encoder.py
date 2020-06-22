@@ -35,13 +35,13 @@ class PreActBlock(nn.Module):
         bias = True if ( args.norm == "none" ) else False
 
         self.norm1 = norm2d(in_planes, args.norm)
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=bias)
         self.norm2 = norm2d(planes, args.norm)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=bias)
 
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=bias)
             )
 
     def forward(self, x):
@@ -64,15 +64,15 @@ class PreActBottleneck(nn.Module):
         bias = True if ( args.norm == "none" ) else False
         
         self.norm1 = norm2d(in_planes, args.norm)
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=bias)
         self.norm2 = norm2d(planes, args.norm)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=bias)
         self.norm3 = norm2d(planes, args.norm)
-        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
+        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=bias)
 
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=bias)
             )
 
     def forward(self, x):

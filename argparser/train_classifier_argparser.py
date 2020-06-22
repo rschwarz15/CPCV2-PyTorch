@@ -13,6 +13,7 @@ def argparser():
     parser.add_argument('--sched_step_size',  type=int,   metavar='', default=100,         help="Schedular Step Size")
     parser.add_argument('--sched_milestones', type=str,   metavar='', default="",         help="Optimizer will be MultiStepLR - Takes a string of comma seperated milestones '50,100,150'")
     parser.add_argument('--encoder',          type=str,   metavar='', default="resnet50", help="Which encoder to use (resnet18/34/50/101/152, mobilenetV2)")
+    parser.add_argument('--norm',             type=str,   metavar='', default="none",     help="What normalisation layer to use (none, batch, layer)")
     parser.add_argument('--model_num',        type=str,   metavar='', default=-1,         help="Number of Epochs that CPC Encoder was trained for (required for CPC classification training)")
    
     parser.add_argument('--fully_supervised', action='store_true',                        help="When set will train a fully supeverised model")
