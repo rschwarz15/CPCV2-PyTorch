@@ -69,15 +69,19 @@ class PreActResNet(nn.Module):
         self.in_planes = 64
         self.dataset = args.dataset
 
-        if self.dataset == "imagenet": 
+        if self.dataset == "stl10":
+            # From https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
+            # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
+            self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=5, stride=1, padding=2, bias=False)
+        elif self.dataset[:5] == "cifar":
+            # From https://github.com/kuangliu/pytorch-cifar/blob/master/models/preact_resnet.py
+            self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
+        elif self.dataset == "imagenet": 
             # Standard ResNet Structure for ImageNet
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=7, stride=2, padding=3, bias=False)
-            self.bn1 = nn.BatchNorm2d(self.in_planes)
+            self.bn1 = nn.BatchNorm2d(self.in_planes, args.norm)
             self.relu = nn.ReLU(inplace=True)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        else:
-            # For smaller sized images, a smaller kernel conv layer and no pooling is used
-            self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
  
         self.layer1 = self._make_layer(block, num_channels[0], num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, num_channels[1], num_blocks[1], stride=2)

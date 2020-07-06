@@ -23,7 +23,6 @@ def train():
         for i, (batch, _) in enumerate(tqdm(unsupervised_loader, disable=args.print_option, dynamic_ncols=True)):
             net.zero_grad()
             loss = net(batch.to(args.device))
-            loss = torch.mean(loss, 0) # take mean over all GPUs
             loss.backward()
             optimizer.step()
 
@@ -63,6 +62,10 @@ def train():
             )
         )
 
+        # Save net at every 100th epoch
+        if epoch % 100 == 0 and epoch != args.trained_epochs+args.epochs:
+            save(net, epoch)
+
   
 def distribute_over_GPUs(args, net):
     num_GPU = torch.cuda.device_count()
@@ -76,7 +79,12 @@ def distribute_over_GPUs(args, net):
     net = nn.DataParallel(net).to(args.device)
 
     return net
-      
+
+
+def save(net, epochs):
+    saveNet = net.module # unwrap DataParallel
+    torch.save(saveNet.state_dict(), f"{cpc_path}_{args.encoder}_{args.norm}Norm_{epochs}.pt")
+    torch.save(saveNet.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.norm}Norm_{epochs}.pt")
 
 if __name__ == "__main__":
     args = argparser()
@@ -87,7 +95,7 @@ if __name__ == "__main__":
     # Define Network
     net = CPC(args)
     if args.trained_epochs:
-        net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.trained_epochs}.pt"))
+        net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.trained_epochs}.pt"))
     net = distribute_over_GPUs(args, net)
             
     # Freeze classifier layer - save memory
@@ -114,9 +122,7 @@ if __name__ == "__main__":
         ext = "_incomplete"
             
     # Save the full network and the encoder
-    net = net.module # unwrap DataParallel
-    torch.save(net.state_dict(), f"{cpc_path}_{args.encoder}_{args.trained_epochs+args.epochs}{ext}.pt")
-    torch.save(net.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.trained_epochs+args.epochs}{ext}.pt")
+    save(net, f"{args.trained_epochs+args.epochs}{ext}")
 
 
         

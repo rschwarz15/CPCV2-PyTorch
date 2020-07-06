@@ -12,9 +12,12 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
+num_workers = 1
+
 aug = {
     "stl10": {
         "randcrop": 64,
+        "image_resize": 32,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.44087532, 0.42790526, 0.3867924],  # values for train+unsupervised combined
@@ -24,6 +27,7 @@ aug = {
     }, 
     "cifar10": {
         "randcrop": False,
+        "image_resize": False,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.49139968, 0.48215827, 0.44653124],
@@ -33,6 +37,7 @@ aug = {
     },
     "cifar100": {
         "randcrop": False,
+        "image_resize": False,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.5070746, 0.48654896, 0.44091788],
@@ -44,8 +49,6 @@ aug = {
 
 def get_stl10_dataloader(args, labeled=False, validate=False):
     data_path = os.path.join("data", "stl10")
-
-    num_workers = 0
 
     # Define Transforms
     transform_train = transforms.Compose([get_transforms(eval=False, aug=aug["stl10"])])
@@ -110,7 +113,6 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
 
 
 def get_cifar_dataloader(args, cifar_classes):
-    num_workers = 0
 
     if cifar_classes == 10:
         data_path = os.path.join("data", "cifar10")
@@ -204,6 +206,9 @@ def get_transforms(eval=False, aug=None):
 
     if aug["randcrop"] and eval:
         trans.append(transforms.CenterCrop(aug["randcrop"]))
+    
+    if aug["image_resize"]: 
+        trans.append(transforms.Resize(aug["image_resize"]))
 
     if aug["rand_horizontal_flip"] and not eval:
         trans.append(transforms.RandomHorizontalFlip())

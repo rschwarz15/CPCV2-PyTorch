@@ -1,6 +1,7 @@
 from models.PixelCNN import PixelCNN
 from models.MobileNetV2_Encoder import MobileNetV2_Encoder    
-from models.ResnetV2_Encoder import PreActResNetN_Encoder
+from models.ResNetV2_Encoder import PreActResNetN_Encoder
+from models.WideResNet_Encoder import Wide_ResNet_Encoder
 from models.InfoNCE_Loss import InfoNCE_Loss
 
 import os
@@ -25,6 +26,12 @@ class CPC(nn.Module):
         elif args.encoder in ("resnet50", "resent101", "resnet152"):
             self.enc = PreActResNetN_Encoder(args, use_classifier=False)
             self.pred_size = 1024
+        elif args.encoder[:10] == "wideresnet":
+            parameters = args.encoder.split("-")
+            depth = int(parameters[1])
+            widen_factor = int(parameters[2])
+            self.enc = Wide_ResNet_Encoder(args, depth, widen_factor, use_classifier=False)
+            self.pred_size = 64 * widen_factor
         elif args.encoder == "mobilenetV2":
             self.enc = MobileNetV2_Encoder(args)
             self.pred_size = 1280
@@ -39,7 +46,7 @@ class CPC(nn.Module):
         # Input x is of shape (batch_size, 1, 64, 64)
 
         # Find all encoding vectors
-        self.encodings = self.enc(x) # (batch_size, 7, 7, 256)
+        self.encodings = self.enc(x) # (batch_size, 7, 7, pred_size)
 
         # Find all context vectors
         # permute encodings to (batch_size, pred_size, 7, 7) for ar parse

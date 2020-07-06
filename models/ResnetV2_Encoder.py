@@ -20,6 +20,8 @@ def norm2d(planes, norm):
         return nn.BatchNorm2d(planes)
     elif norm == "layer":
         return nn.GroupNorm(1, planes)
+    elif norm == "instance":
+        return nn.GroupNorm(planes, planes)
     else:
         raise Exception("Undefined norm choice")
 
@@ -98,15 +100,15 @@ class PreActResNet_Encoder(nn.Module):
         
         if self.dataset == "stl10":
             # From https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
-            # Testing showed 5x5 kernal to have better classification performance
+            # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=5, stride=1, padding=2, bias=bias)
         elif self.dataset[:5] == "cifar":
-            # Is 3x3 or 5x5 better?
+            # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=3, stride=1, padding=1, bias=bias)
         elif self.dataset == "imagenet": 
             # Standard ResNet Structure for ImageNet
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=7, stride=2, padding=3, bias=bias)
-            self.bn1 = norm2d(self.in_planes, args.norm)
+            self.norm1 = norm2d(self.in_planes, args.norm)
             self.relu = nn.ReLU(inplace=True)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -136,8 +138,8 @@ class PreActResNet_Encoder(nn.Module):
             .permute(0, 2, 3, 1, 4, 5)
             .contiguous()
         )
-        n_patches_x = x.shape[1]
-        n_patches_y = x.shape[2]
+        n_patches_x = x.shape[1] # In general this will be 7
+        n_patches_y = x.shape[2] # But it could be varied like in CPC V2
         x = x.view(
             x.shape[0] * x.shape[1] * x.shape[2], x.shape[3], x.shape[4], x.shape[5]
         )
@@ -146,7 +148,7 @@ class PreActResNet_Encoder(nn.Module):
         z = self.conv1(x)
 
         if self.dataset == "imagenet":
-            #z = self.bn1(z)
+            z = self.norm1(z)
             z = self.relu(z)
             z = self.maxpool(z)
 
@@ -160,7 +162,7 @@ class PreActResNet_Encoder(nn.Module):
         ### Use classifier if specified
         if self.use_classifier:
             # Reshape z so that each image is seperate
-            z = z.view(z.shape[0], 49, z.shape[3])
+            z = z.view(z.shape[0], n_patches_x * n_patches_y, z.shape[3])
 
             z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
             z = self.classifier(z)
