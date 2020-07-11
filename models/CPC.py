@@ -18,6 +18,8 @@ class CPC(nn.Module):
 
     def __init__(self, args):
         super().__init__()
+        self.args = args
+        assert 1 <= self.args.pred_directions <= 4
 
         # Define Encoder Network
         if args.encoder in ("resnet18", "resnet34"):
@@ -39,8 +41,11 @@ class CPC(nn.Module):
         # Define Autoregressive Network
         self.ar = PixelCNN(in_channels=self.pred_size)
 
-        # Define Predictive and Loss Network
-        self.pred_loss = InfoNCE_Loss(args, in_channels=self.pred_size)
+        # Define Predictive + Loss Networks
+        self.pred_loss = nn.ModuleList(
+            InfoNCE_Loss(args, in_channels=self.pred_size)
+            for _ in range(args.pred_directions)
+        )
 
     def forward(self, x):
         # Input x is of shape (batch_size, 1, 64, 64)
@@ -48,13 +53,19 @@ class CPC(nn.Module):
         # Find all encoding vectors
         self.encodings = self.enc(x) # (batch_size, 7, 7, pred_size)
 
-        # Find all context vectors
-        # permute encodings to (batch_size, pred_size, 7, 7) for ar parse
+        # permute encodings to (batch_size, pred_size, 7, 7) for ar network
         self.encodings = self.encodings.permute(0,3,1,2).contiguous() # (batch_size, pred_size, 7, 7)
-        self.contexts = self.ar(self.encodings) # (batch_size, pred_size, 7, 7)
 
-        # Find Contrastive Loss
-        loss = self.pred_loss(self.encodings, self.contexts)
+        loss = 0
+        for i in range(self.args.pred_directions):
+            # Find all context vectors
+            self.contexts = self.ar(self.encodings) # (batch_size, pred_size, 7, 7)
+
+            # Find Contrastive Loss
+            loss += self.pred_loss[i](self.encodings, self.contexts)
+
+            # rotate encoding 90 degrees clockwise for next direction
+            self.encodings = self.encodings.transpose(2,3).flip(3)
 
         return loss
 

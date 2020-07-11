@@ -11,12 +11,15 @@ def argparser():
     parser.add_argument('--batch_size',       type=int,   metavar='', default=16,         help="Batch Size")
     parser.add_argument('--lr',               type=float, metavar='', default=2e-4,       help="Learning Rate")
     parser.add_argument('--pred_steps',       type=int,   metavar='', default=5,          help="Number of Predictions Steps")
+    parser.add_argument('--pred_directions',  type=int,   metavar='', default=1,          help="Number of Driections to make predictions in")
     parser.add_argument('--neg_samples',      type=int,   metavar='', default=16,         help="Number of Negative Samples for InfoNCE Loss")
     parser.add_argument('--patch_size',       type=int,   metavar='', default=16,         help="Dimension of Patch")
+    parser.add_argument('--image_resize',     type=int,   metavar='', default=0,          help="If changed, will resize the image to the given value")
     parser.add_argument('--encoder',          type=str,   metavar='', default="resnet18", help="Which encoder to use (resnet18/34/50/101/152, wideresnet-depth-width, mobilenetV2)")
     parser.add_argument('--norm',             type=str,   metavar='', default="none",     help="What normalisation layer to use (none, batch, layer)")
     parser.add_argument('--print_option',     type=int,   metavar='', default=0,          help="How results are displayed whilst training (0=tqdm, 1=interval statistics, other=End of Epoch only)")
     parser.add_argument('--print_interval',   type=int,   metavar='', default=500,        help="When print_option = 1, this determines how often to print")
+    parser.add_argument('--model_name_ext',   type=str,   metavar='', default="",         help="Added to the end of the model name")
     
     parser.add_argument('--download_dataset', action='store_true',                        help="Download the chosen dataset")
 

@@ -83,8 +83,8 @@ def distribute_over_GPUs(args, net):
 
 def save(net, epochs):
     saveNet = net.module # unwrap DataParallel
-    torch.save(saveNet.state_dict(), f"{cpc_path}_{args.encoder}_{args.norm}Norm_{epochs}.pt")
-    torch.save(saveNet.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.norm}Norm_{epochs}.pt")
+    torch.save(saveNet.state_dict(), f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}.pt")
+    torch.save(saveNet.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}.pt")
 
 if __name__ == "__main__":
     args = argparser()
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     # Define Network
     net = CPC(args)
     if args.trained_epochs:
-        net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.trained_epochs}.pt"))
+        net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{args.trained_epochs}.pt"))
     net = distribute_over_GPUs(args, net)
             
     # Freeze classifier layer - save memory
@@ -114,15 +114,14 @@ if __name__ == "__main__":
         unsupervised_loader, _, _ = get_cifar100_dataloader(args)
     
     # Train the network
-    ext = ""
     try:
         train()
     except KeyboardInterrupt:
         print("\nEnding Program on Keyboard Interrupt")
-        ext = "_incomplete"
+        args.model_name_ext += "_incomplete"
             
     # Save the full network and the encoder
-    save(net, f"{args.trained_epochs+args.epochs}{ext}")
+    save(net, f"{args.trained_epochs+args.epochs}{args.model_name_ext}")
 
 
         

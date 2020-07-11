@@ -105,9 +105,6 @@ if __name__ == "__main__":
     if not args.fully_supervised:
         print("Training CPC Classifier")
 
-        if args.model_num == -1:
-            raise Exception("For Training CPC model_num needs to be set")
-
         # Load the CPC trained encoder (with classifier layer activated)
         if args.encoder[:6] == "resnet":
             net = PreActResNetN_Encoder(args, use_classifier=True).to(args.device)
@@ -120,7 +117,7 @@ if __name__ == "__main__":
             net = MobileNetV2_Encoder(args, use_classifier=True).to(args.device)
         
         encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
-        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.model_num}.pt"))        
+        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{args.model_num}.pt"))        
         net = net.to(args.device)
 
         # Freeze encoder layers

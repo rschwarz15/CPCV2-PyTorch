@@ -17,7 +17,6 @@ num_workers = 1
 aug = {
     "stl10": {
         "randcrop": 64,
-        "image_resize": 32,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.44087532, 0.42790526, 0.3867924],  # values for train+unsupervised combined
@@ -27,7 +26,6 @@ aug = {
     }, 
     "cifar10": {
         "randcrop": False,
-        "image_resize": False,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.49139968, 0.48215827, 0.44653124],
@@ -37,7 +35,6 @@ aug = {
     },
     "cifar100": {
         "randcrop": False,
-        "image_resize": False,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.5070746, 0.48654896, 0.44091788],
@@ -51,8 +48,8 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
     data_path = os.path.join("data", "stl10")
 
     # Define Transforms
-    transform_train = transforms.Compose([get_transforms(eval=False, aug=aug["stl10"])])
-    transform_valid = transforms.Compose([get_transforms(eval=True, aug=aug["stl10"])])
+    transform_train = transforms.Compose([get_transforms(args, eval=False, aug=aug["stl10"])])
+    transform_valid = transforms.Compose([get_transforms(args, eval=True, aug=aug["stl10"])])
 
     # Get Datasets
     unsupervised_dataset = torchvision.datasets.STL10(
@@ -118,8 +115,8 @@ def get_cifar_dataloader(args, cifar_classes):
         data_path = os.path.join("data", "cifar10")
 
         # Define Transforms
-        transform_train = transforms.Compose([get_transforms(eval=False, aug=aug["cifar10"])])
-        transform_valid = transforms.Compose([get_transforms(eval=True, aug=aug["cifar10"])])
+        transform_train = transforms.Compose([get_transforms(args, eval=False, aug=aug["cifar10"])])
+        transform_valid = transforms.Compose([get_transforms(args, eval=True, aug=aug["cifar10"])])
 
         # Get Datasets
         unsupervised_dataset = torchvision.datasets.CIFAR10(
@@ -133,8 +130,8 @@ def get_cifar_dataloader(args, cifar_classes):
         data_path = os.path.join("data", "cifar100")
 
         # Define Transforms
-        transform_train = transforms.Compose([get_transforms(eval=False, aug=aug["cifar100"])])
-        transform_valid = transforms.Compose([get_transforms(eval=True, aug=aug["cifar100"])])
+        transform_train = transforms.Compose([get_transforms(args, eval=False, aug=aug["cifar100"])])
+        transform_valid = transforms.Compose([get_transforms(args, eval=True, aug=aug["cifar100"])])
 
         # Get Datasets
         unsupervised_dataset = torchvision.datasets.CIFAR100(
@@ -198,7 +195,7 @@ def create_validation_sampler(dataset_size):
     return train_sampler, valid_sampler
 
 
-def get_transforms(eval=False, aug=None):
+def get_transforms(args, eval, aug):
     trans = []
 
     if aug["randcrop"] and not eval:
@@ -207,8 +204,8 @@ def get_transforms(eval=False, aug=None):
     if aug["randcrop"] and eval:
         trans.append(transforms.CenterCrop(aug["randcrop"]))
     
-    if aug["image_resize"]: 
-        trans.append(transforms.Resize(aug["image_resize"]))
+    if args.image_resize:
+        trans.append(transforms.Resize(args.image_resize))
 
     if aug["rand_horizontal_flip"] and not eval:
         trans.append(transforms.RandomHorizontalFlip())
