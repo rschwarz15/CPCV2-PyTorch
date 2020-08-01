@@ -110,8 +110,8 @@ if __name__ == "__main__":
             net = PreActResNetN_Encoder(args, use_classifier=True).to(args.device)
         elif args.encoder[:10] == "wideresnet":
             parameters = args.encoder.split("-")
-            depth = parameters[1]
-            widen_factor = parameters[2]
+            depth = int(parameters[1])
+            widen_factor = int(parameters[2])
             net = Wide_ResNet_Encoder(args, depth, widen_factor, use_classifier=True)
         elif args.encoder == "mobielnetV2":
             net = MobileNetV2_Encoder(args, use_classifier=True).to(args.device)

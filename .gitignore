@@ -10,3 +10,6 @@ data/cifar100/
 TrainedModels/cifar10/*
 TrainedModels/cifar100/*
 TrainedModels/stl10/*
+
+# Files to ignore
+m3.bat

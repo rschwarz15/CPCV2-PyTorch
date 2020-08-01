@@ -58,14 +58,15 @@ class CPC(nn.Module):
 
         loss = 0
         for i in range(self.args.pred_directions):
+            # rotate encoding 90 degrees clockwise for subsequent directtions
+            if i > 0:
+                self.encodings = self.encodings.transpose(2,3).flip(3)
+
             # Find all context vectors
             self.contexts = self.ar(self.encodings) # (batch_size, pred_size, 7, 7)
 
             # Find Contrastive Loss
             loss += self.pred_loss[i](self.encodings, self.contexts)
-
-            # rotate encoding 90 degrees clockwise for next direction
-            self.encodings = self.encodings.transpose(2,3).flip(3)
 
         return loss
 

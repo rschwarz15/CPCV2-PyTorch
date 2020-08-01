@@ -14,7 +14,7 @@ import os
 
 def train():
     iter_per_epoch = len(unsupervised_loader)
-    epoch_loss_batches = 200
+    epoch_loss_batches = round(0.9 * iter_per_epoch)
 
     for epoch in range(args.trained_epochs+1, args.trained_epochs+args.epochs+1):
         prev_time = time.time()
@@ -23,11 +23,12 @@ def train():
         for i, (batch, _) in enumerate(tqdm(unsupervised_loader, disable=args.print_option, dynamic_ncols=True)):
             net.zero_grad()
             loss = net(batch.to(args.device))
+            loss = torch.mean(loss, 0) # take mean over all GPUs
             loss.backward()
             optimizer.step()
 
-            # Total loss of last n batches
-            if i >= iter_per_epoch - epoch_loss_batches:
+            # Total loss of last 10% of batches
+            if i >= epoch_loss_batches:
                 epoch_loss += float(loss)
 
             if ( (i+1) % args.print_interval == 0 or i == 0 ) and args.print_option == 1:
@@ -58,7 +59,7 @@ def train():
             'Epoch {}/{}, Epoch Loss: {:.4f}'.format(
                 epoch,
                 args.trained_epochs + args.epochs,
-                epoch_loss/epoch_loss_batches,
+                epoch_loss/(iter_per_epoch-epoch_loss_batches),
             )
         )
 
@@ -83,8 +84,8 @@ def distribute_over_GPUs(args, net):
 
 def save(net, epochs):
     saveNet = net.module # unwrap DataParallel
-    torch.save(saveNet.state_dict(), f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}.pt")
-    torch.save(saveNet.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}.pt")
+    torch.save(saveNet.state_dict(), f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}{args.model_name_ext}.pt")
+    torch.save(saveNet.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}{args.model_name_ext}.pt")
 
 if __name__ == "__main__":
     args = argparser()
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     # Define Network
     net = CPC(args)
     if args.trained_epochs:
-        net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{args.trained_epochs}.pt"))
+        net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{args.trained_epochs}{args.model_name_ext}.pt"))
     net = distribute_over_GPUs(args, net)
             
     # Freeze classifier layer - save memory
@@ -118,10 +119,11 @@ if __name__ == "__main__":
         train()
     except KeyboardInterrupt:
         print("\nEnding Program on Keyboard Interrupt")
+        print("\nSaving current model...")
         args.model_name_ext += "_incomplete"
             
     # Save the full network and the encoder
-    save(net, f"{args.trained_epochs+args.epochs}{args.model_name_ext}")
+    save(net, f"{args.trained_epochs+args.epochs}")
 
 
         
