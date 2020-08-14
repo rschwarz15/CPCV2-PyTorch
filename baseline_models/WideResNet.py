@@ -5,8 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-#BEFORE UPDATING GIT NEED TO CHECK IF BIAS = TRUE OR FALSE IS BETTER
-
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1):
         super(wide_basic, self).__init__()

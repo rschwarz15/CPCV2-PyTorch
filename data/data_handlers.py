@@ -17,15 +17,18 @@ num_workers = 1
 aug = {
     "stl10": {
         "randcrop": 64,
+        "randcrop_padding": None,
         "rand_horizontal_flip": True,
         "grayscale": True,
-        "mean": [0.44087532, 0.42790526, 0.3867924],  # values for train+unsupervised combined
+        # values for train+unsupervised combined
+        "mean": [0.44087532, 0.42790526, 0.3867924],
         "std": [0.26826888, 0.2610458, 0.2686684],
-        "bw_mean":  [0.42709708], 
+        "bw_mean":  [0.42709708],
         "bw_std": [0.257203],
-    }, 
+    },
     "cifar10": {
-        "randcrop": False,
+        "randcrop": 32,
+        "randcrop_padding": 4,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.49139968, 0.48215827, 0.44653124],
@@ -34,7 +37,8 @@ aug = {
         "bw_std": [0.23919088],
     },
     "cifar100": {
-        "randcrop": False,
+        "randcrop": 32,
+        "randcrop_padding": 4,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.5070746, 0.48654896, 0.44091788],
@@ -44,12 +48,49 @@ aug = {
     }
 }
 
+
+def get_transforms(args, eval, aug):
+    trans = []
+
+    if aug["randcrop"] and not eval:
+        trans.append(transforms.RandomCrop(aug["randcrop"], aug["randcrop_padding"]))
+
+    if aug["randcrop"] and eval:
+        trans.append(transforms.CenterCrop(aug["randcrop"]))
+
+    if args.image_resize:   # User Input
+        trans.append(transforms.Resize(args.image_resize))
+
+    if aug["rand_horizontal_flip"] and not eval:
+        trans.append(transforms.RandomHorizontalFlip())
+
+    if aug["grayscale"]:
+        trans.append(transforms.Grayscale())
+        trans.append(transforms.ToTensor())
+        trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"]))
+    elif aug["mean"]:
+        trans.append(transforms.ToTensor())
+        trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"]))
+    else:
+        trans.append(transforms.ToTensor())
+
+    trans = transforms.Compose(trans)
+
+    # Print training transorms
+    if not eval:
+        print(f"Entire Image Training Transformations: \n{trans}")
+
+    return trans
+
+
 def get_stl10_dataloader(args, labeled=False, validate=False):
     data_path = os.path.join("data", "stl10")
 
     # Define Transforms
-    transform_train = transforms.Compose([get_transforms(args, eval=False, aug=aug["stl10"])])
-    transform_valid = transforms.Compose([get_transforms(args, eval=True, aug=aug["stl10"])])
+    transform_train = transforms.Compose(
+        [get_transforms(args, eval=False, aug=aug["stl10"])])
+    transform_valid = transforms.Compose(
+        [get_transforms(args, eval=True, aug=aug["stl10"])])
 
     # Get Datasets
     unsupervised_dataset = torchvision.datasets.STL10(
@@ -81,7 +122,8 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
 
         if training_dataset == "train":
             dataset_size = len(train_dataset)
-            train_sampler, valid_sampler = create_validation_sampler(dataset_size)
+            train_sampler, valid_sampler = create_validation_sampler(
+                dataset_size)
 
             train_loader = torch.utils.data.DataLoader(
                 train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
@@ -89,7 +131,8 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
 
         elif training_dataset == "unlabeled":
             dataset_size = len(unsupervised_dataset)
-            train_sampler, valid_sampler = create_validation_sampler(dataset_size)
+            train_sampler, valid_sampler = create_validation_sampler(
+                dataset_size)
 
             unsupervised_loader = torch.utils.data.DataLoader(
                 unsupervised_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
@@ -115,8 +158,10 @@ def get_cifar_dataloader(args, cifar_classes):
         data_path = os.path.join("data", "cifar10")
 
         # Define Transforms
-        transform_train = transforms.Compose([get_transforms(args, eval=False, aug=aug["cifar10"])])
-        transform_valid = transforms.Compose([get_transforms(args, eval=True, aug=aug["cifar10"])])
+        transform_train = transforms.Compose(
+            [get_transforms(args, eval=False, aug=aug["cifar10"])])
+        transform_valid = transforms.Compose(
+            [get_transforms(args, eval=True, aug=aug["cifar10"])])
 
         # Get Datasets
         unsupervised_dataset = torchvision.datasets.CIFAR10(
@@ -130,8 +175,10 @@ def get_cifar_dataloader(args, cifar_classes):
         data_path = os.path.join("data", "cifar100")
 
         # Define Transforms
-        transform_train = transforms.Compose([get_transforms(args, eval=False, aug=aug["cifar100"])])
-        transform_valid = transforms.Compose([get_transforms(args, eval=True, aug=aug["cifar100"])])
+        transform_train = transforms.Compose(
+            [get_transforms(args, eval=False, aug=aug["cifar100"])])
+        transform_valid = transforms.Compose(
+            [get_transforms(args, eval=True, aug=aug["cifar100"])])
 
         # Get Datasets
         unsupervised_dataset = torchvision.datasets.CIFAR100(
@@ -156,24 +203,27 @@ def get_cifar_dataloader(args, cifar_classes):
         indices = list(range(len(unsupervised_dataset)))
         np.random.shuffle(indices)
         train_indices = indices[:train_size]
-        train_sampler = torch.utils.data.sampler.SubsetRandomSampler(train_indices)
+        train_sampler = torch.utils.data.sampler.SubsetRandomSampler(
+            train_indices)
         train_loader = torch.utils.data.DataLoader(
             unsupervised_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
         )
-    except AttributeError: # args.train_size is not defined during train_CPC
+    except AttributeError:  # args.train_size is not defined during train_CPC
         # train_loader is not needed during train_CPC
-        train_loader = None 
+        train_loader = None
 
     return (unsupervised_loader, train_loader, test_loader)
 
 
 def get_cifar10_dataloader(args):
-    unsupervised_loader, train_loader, test_loader = get_cifar_dataloader(args, 10)
+    unsupervised_loader, train_loader, test_loader = get_cifar_dataloader(
+        args, 10)
     return (unsupervised_loader, train_loader, test_loader)
 
 
 def get_cifar100_dataloader(args):
-    unsupervised_loader, train_loader, test_loader = get_cifar_dataloader(args, 100)
+    unsupervised_loader, train_loader, test_loader = get_cifar_dataloader(
+        args, 100)
     return (unsupervised_loader, train_loader, test_loader)
 
 
@@ -195,58 +245,38 @@ def create_validation_sampler(dataset_size):
     return train_sampler, valid_sampler
 
 
-def get_transforms(args, eval, aug):
-    trans = []
-
-    if aug["randcrop"] and not eval:
-        trans.append(transforms.RandomCrop(aug["randcrop"]))
-
-    if aug["randcrop"] and eval:
-        trans.append(transforms.CenterCrop(aug["randcrop"]))
-    
-    if args.image_resize:
-        trans.append(transforms.Resize(args.image_resize))
-
-    if aug["rand_horizontal_flip"] and not eval:
-        trans.append(transforms.RandomHorizontalFlip())
-
-    if aug["grayscale"]:
-        trans.append(transforms.Grayscale())
-        trans.append(transforms.ToTensor())
-        trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"]))
-    elif aug["mean"]:
-        trans.append(transforms.ToTensor())
-        trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"]))
-    else:
-        trans.append(transforms.ToTensor())
-
-    trans = transforms.Compose(trans)
-    return trans
-
-
 def calculate_normalisation(dataset):
     if dataset == "stl10":
         data_path = os.path.join("data", "stl10")
-        
+
         # RGB
         train_transform = transforms.Compose([transforms.ToTensor()])
-        train_set = torchvision.datasets.STL10(root=data_path, split="train+unlabeled", download=True, transform=train_transform)
+        train_set = torchvision.datasets.STL10(
+            root=data_path, split="train+unlabeled", download=True, transform=train_transform)
 
-        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))]) # concatenate each channel
-        c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
-        c3 = np.concatenate([np.asarray(train_set[i][0][2]) for i in range(len(train_set))])
+        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(
+            len(train_set))])  # concatenate each channel
+        c2 = np.concatenate([np.asarray(train_set[i][0][1])
+                             for i in range(len(train_set))])
+        c3 = np.concatenate([np.asarray(train_set[i][0][2])
+                             for i in range(len(train_set))])
 
-        train_mean = [ np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
-        train_std = [ np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
+        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(
+            c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
+        train_std = [np.std(c1, axis=(0, 1)), np.std(
+            c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
         # grayscale
-        train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
-        train_set = torchvision.datasets.STL10(root=data_path, split="train+unlabeled", download=True, transform=train_transform)
+        train_transform = transforms.Compose(
+            [transforms.Grayscale(), transforms.ToTensor()])
+        train_set = torchvision.datasets.STL10(
+            root=data_path, split="train+unlabeled", download=True, transform=train_transform)
 
-        c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
+        c = np.concatenate([np.asarray(train_set[i][0][0])
+                            for i in range(len(train_set))])
 
-        grey_train_mean = [ np.mean(c, axis=(0, 1,)) ]
-        grey_train_std = [ np.std(c, axis=(0, 1)) ]
+        grey_train_mean = [np.mean(c, axis=(0, 1,))]
+        grey_train_std = [np.std(c, axis=(0, 1))]
 
         # [0.44087532, 0.42790526, 0.3867924] [0.26826888, 0.2610458, 0.2686684]
         # [0.42709708] [0.257203]
@@ -256,23 +286,32 @@ def calculate_normalisation(dataset):
 
         # RGB
         train_transform = transforms.Compose([transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=train_transform)
+        train_set = torchvision.datasets.CIFAR10(
+            root=data_path, train=True, download=True, transform=train_transform)
 
-        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
-        c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
-        c3 = np.concatenate([np.asarray(train_set[i][0][2]) for i in range(len(train_set))])
+        c1 = np.concatenate([np.asarray(train_set[i][0][0])
+                             for i in range(len(train_set))])
+        c2 = np.concatenate([np.asarray(train_set[i][0][1])
+                             for i in range(len(train_set))])
+        c3 = np.concatenate([np.asarray(train_set[i][0][2])
+                             for i in range(len(train_set))])
 
-        train_mean = [ np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
-        train_std = [ np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
+        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(
+            c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
+        train_std = [np.std(c1, axis=(0, 1)), np.std(
+            c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
         # grayscale
-        train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=train_transform )
+        train_transform = transforms.Compose(
+            [transforms.Grayscale(), transforms.ToTensor()])
+        train_set = torchvision.datasets.CIFAR10(
+            root=data_path, train=True, download=True, transform=train_transform)
 
-        c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
+        c = np.concatenate([np.asarray(train_set[i][0][0])
+                            for i in range(len(train_set))])
 
-        grey_train_mean = [ np.mean(c, axis=(0, 1,)) ]
-        grey_train_std = [ np.std(c, axis=(0, 1)) ]
+        grey_train_mean = [np.mean(c, axis=(0, 1,))]
+        grey_train_std = [np.std(c, axis=(0, 1))]
 
         # [0.49139968, 0.48215827, 0.44653124] [0.24703233, 0.24348505, 0.26158768]
         # [0.4808616] [0.23919088]
@@ -282,23 +321,32 @@ def calculate_normalisation(dataset):
 
         # RGB
         train_transform = transforms.Compose([transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR100(root=data_path, train=True, download=True, transform=train_transform)
+        train_set = torchvision.datasets.CIFAR100(
+            root=data_path, train=True, download=True, transform=train_transform)
 
-        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
-        c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
-        c3 = np.concatenate([np.asarray(train_set[i][0][2]) for i in range(len(train_set))])
+        c1 = np.concatenate([np.asarray(train_set[i][0][0])
+                             for i in range(len(train_set))])
+        c2 = np.concatenate([np.asarray(train_set[i][0][1])
+                             for i in range(len(train_set))])
+        c3 = np.concatenate([np.asarray(train_set[i][0][2])
+                             for i in range(len(train_set))])
 
-        train_mean = [ np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
-        train_std = [ np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
+        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(
+            c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
+        train_std = [np.std(c1, axis=(0, 1)), np.std(
+            c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
         # grayscale
-        train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR100(root=data_path, train=True, download=True, transform=train_transform )
+        train_transform = transforms.Compose(
+            [transforms.Grayscale(), transforms.ToTensor()])
+        train_set = torchvision.datasets.CIFAR100(
+            root=data_path, train=True, download=True, transform=train_transform)
 
-        c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
+        c = np.concatenate([np.asarray(train_set[i][0][0])
+                            for i in range(len(train_set))])
 
-        grey_train_mean = [ np.mean(c, axis=(0, 1,)) ]
-        grey_train_std = [ np.std(c, axis=(0, 1)) ]
+        grey_train_mean = [np.mean(c, axis=(0, 1,))]
+        grey_train_std = [np.std(c, axis=(0, 1))]
 
         # [0.5070746, 0.48654896, 0.44091788] [0.26733422, 0.25643846, 0.27615058]
         # [0.48748648] [0.25063065]
@@ -307,5 +355,7 @@ def calculate_normalisation(dataset):
     print(grey_train_mean, grey_train_std)
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
+    calculate_normalisation("stl10")
+    calculate_normalisation("cifar10")
     calculate_normalisation("cifar100")

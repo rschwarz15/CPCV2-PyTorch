@@ -32,9 +32,9 @@ class PreActBlock(nn.Module):
 
     def __init__(self, args, in_planes, planes, stride=1):
         super(PreActBlock, self).__init__()
-        
+
         # If there isn't normalisation then the conv layers need biasing
-        bias = True if ( args.norm == "none" ) else False
+        bias = True if (args.norm == "none") else False
 
         self.norm1 = norm2d(in_planes, args.norm)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=bias)
@@ -63,14 +63,14 @@ class PreActBottleneck(nn.Module):
         super(PreActBottleneck, self).__init__()
 
         # If there isn't normalisation then the conv layers need biasing
-        bias = True if ( args.norm == "none" ) else False
-        
+        bias = True if (args.norm == "none") else False
+
         self.norm1 = norm2d(in_planes, args.norm)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=bias)
         self.norm2 = norm2d(planes, args.norm)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=bias)
         self.norm3 = norm2d(planes, args.norm)
-        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=bias)
+        self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1, bias=bias)
 
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
@@ -90,14 +90,14 @@ class PreActBottleneck(nn.Module):
 class PreActResNet_Encoder(nn.Module):
     def __init__(self, args, use_classifier, block, num_blocks, num_channels=[64, 128, 256], input_channels=1):
         super(PreActResNet_Encoder, self).__init__()
+        self.args = args
         self.in_planes = 64
         self.dataset = args.dataset
-        self.patch_size = args.patch_size
         self.use_classifier = use_classifier
 
         # If there isn't normalisation then the conv layers need biasing
-        bias = True if ( args.norm == "none" ) else False
-        
+        bias = True if (args.norm == "none") else False
+
         if self.dataset == "stl10":
             # From https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
             # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
@@ -105,7 +105,7 @@ class PreActResNet_Encoder(nn.Module):
         elif self.dataset[:5] == "cifar":
             # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=3, stride=1, padding=1, bias=bias)
-        elif self.dataset == "imagenet": 
+        elif self.dataset == "imagenet":
             # Standard ResNet Structure for ImageNet
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=7, stride=2, padding=3, bias=bias)
             self.norm1 = norm2d(self.in_planes, args.norm)
@@ -128,43 +128,27 @@ class PreActResNet_Encoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        ### Convert image to patches
-        # takes x as (batch_size, 1, 64, 64)
-        # patches it to (batch_size, 7, 7, 1, 16, 16)
-        # then flattens to (batch_size * 7 * 7, 1, 16, 16)
-        x = (
-            x.unfold(2, self.patch_size, self.patch_size // 2)
-            .unfold(3, self.patch_size, self.patch_size // 2)
-            .permute(0, 2, 3, 1, 4, 5)
-            .contiguous()
-        )
-        n_patches_x = x.shape[1] # In general this will be 7
-        n_patches_y = x.shape[2] # But it could be varied like in CPC V2
-        x = x.view(
-            x.shape[0] * x.shape[1] * x.shape[2], x.shape[3], x.shape[4], x.shape[5]
-        )
-        
-        ### Run the model
-        z = self.conv1(x)
+        grid_size = self.args.grid_size
 
+        # Run the model
+        z = self.conv1(x)
         if self.dataset == "imagenet":
             z = self.norm1(z)
             z = self.relu(z)
             z = self.maxpool(z)
-
         z = self.layer1(z)
         z = self.layer2(z)
         z = self.layer3(z)
-
         z = self.avgpool(z)
-        z = z.reshape(-1, n_patches_x, n_patches_y, z.shape[1]) # (batch_size, 7, 7, pred_size)
+        z = z.reshape(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, pred_size)
 
-        ### Use classifier if specified
+        # Use classifier if specified
         if self.use_classifier:
             # Reshape z so that each image is seperate
-            z = z.view(z.shape[0], n_patches_x * n_patches_y, z.shape[3])
+            z = z.view(z.shape[0], grid_size * grid_size, z.shape[3])
 
-            z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
+            # mean for each image, (batch_size, pred_size)
+            z = torch.mean(z, dim=1)
             z = self.classifier(z)
             z = F.log_softmax(z, dim=1)
 
@@ -172,19 +156,24 @@ class PreActResNet_Encoder(nn.Module):
 
 
 def PreActResNet18_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [2,2,2])
+    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [2, 2, 2])
+
 
 def PreActResNet34_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [3,4,6])
+    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [3, 4, 6])
+
 
 def PreActResNet50_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3,4,6])
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 6])
+
 
 def PreActResNet101_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3,4,23])
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 23])
+
 
 def PreActResNet152_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3,8,36])
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 8, 36])
+
 
 def PreActResNetN_Encoder(args, use_classifier):
     if args.encoder == "resnet18":
@@ -197,4 +186,3 @@ def PreActResNetN_Encoder(args, use_classifier):
         return PreActResNet101_Encoder(args, use_classifier)
     elif args.encoder == "resnet152":
         return PreActResNet152_Encoder(args, use_classifier)
-

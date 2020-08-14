@@ -1,6 +1,7 @@
-from models.CPC import CPC
+from cpc_models.CPC import CPC
 from data.data_handlers import *
 from argparser.train_CPC_argparser import argparser
+from data.image_preprocessing import preprocess
 
 import torch
 import torch.nn as nn
@@ -21,9 +22,12 @@ def train():
         epoch_loss = 0
 
         for i, (batch, _) in enumerate(tqdm(unsupervised_loader, disable=args.print_option, dynamic_ncols=True)):
+            # perform image pre processing - patchify and apply patch based augs if specified
+            batch = preprocess(batch, True, args)
+        
             net.zero_grad()
             loss = net(batch.to(args.device))
-            loss = torch.mean(loss, 0) # take mean over all GPUs
+            loss = torch.mean(loss, dim=0)  # take mean over all GPUs
             loss.backward()
             optimizer.step()
 
@@ -31,7 +35,7 @@ def train():
             if i >= epoch_loss_batches:
                 epoch_loss += float(loss)
 
-            if ( (i+1) % args.print_interval == 0 or i == 0 ) and args.print_option == 1:
+            if ((i+1) % args.print_interval == 0 or i == 0) and args.print_option == 1:
                 if i == 0:
                     div = 1
                 elif i+1 == args.print_interval:
@@ -53,8 +57,8 @@ def train():
                         avg_time
                     )
                 )
-        
-        # Results at end of epoch         
+
+        # Results at end of epoch
         print(
             'Epoch {}/{}, Epoch Loss: {:.4f}'.format(
                 epoch,
@@ -67,7 +71,7 @@ def train():
         if epoch % 100 == 0 and epoch != args.trained_epochs+args.epochs:
             save(net, epoch)
 
-  
+
 def distribute_over_GPUs(args, net):
     num_GPU = torch.cuda.device_count()
 
@@ -83,9 +87,12 @@ def distribute_over_GPUs(args, net):
 
 
 def save(net, epochs):
-    saveNet = net.module # unwrap DataParallel
-    torch.save(saveNet.state_dict(), f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}{args.model_name_ext}.pt")
-    torch.save(saveNet.enc.state_dict(), f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{epochs}{args.model_name_ext}.pt")
+    saveNet = net.module  # unwrap DataParallel
+    torch.save(saveNet.state_dict(),
+               f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{epochs}{args.model_name_ext}.pt")
+    torch.save(saveNet.enc.state_dict(),
+               f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{epochs}{args.model_name_ext}.pt")
+
 
 if __name__ == "__main__":
     args = argparser()
@@ -96,15 +103,17 @@ if __name__ == "__main__":
     # Define Network
     net = CPC(args)
     if args.trained_epochs:
-        net.load_state_dict(torch.load(f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{args.trained_epochs}{args.model_name_ext}.pt"))
+        net.load_state_dict(torch.load(
+            f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{args.trained_epochs}{args.model_name_ext}.pt"))
+    
     net = distribute_over_GPUs(args, net)
-            
+
     # Freeze classifier layer - save memory
     for name, param in net.named_parameters():
         if "classifier" in name:
             param.requires_grad = False
 
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr) 
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr)
 
     # Get selected dataset
     if args.dataset == "stl10":
@@ -113,27 +122,15 @@ if __name__ == "__main__":
         unsupervised_loader, _, _ = get_cifar10_dataloader(args)
     elif args.dataset == "cifar100":
         unsupervised_loader, _, _ = get_cifar100_dataloader(args)
-    
+
     # Train the network
+    print(f"Dataset: {args.dataset}, Encoder: {args.encoder}, Norm: {args.norm}, Pred Directions: {args.pred_directions}, Patch Aug: {args.patch_based_aug}")
     try:
         train()
     except KeyboardInterrupt:
         print("\nEnding Program on Keyboard Interrupt")
         print("\nSaving current model...")
         args.model_name_ext += "_incomplete"
-            
+
     # Save the full network and the encoder
     save(net, f"{args.trained_epochs+args.epochs}")
-
-
-        
-    
-
-
-
-
-
-    
-        
-
-

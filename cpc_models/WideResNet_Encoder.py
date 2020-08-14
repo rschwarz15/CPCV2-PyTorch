@@ -24,7 +24,7 @@ class wide_basic(nn.Module):
         super(wide_basic, self).__init__()
 
         # If there isn't normalisation then the conv layers need biasing
-        bias = True if ( args.norm == "none" ) else False
+        bias = True if (args.norm == "none") else False
 
         self.norm1 = norm2d(in_planes, args.norm)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=bias)
@@ -45,21 +45,22 @@ class wide_basic(nn.Module):
 
         return out
 
+
 class Wide_ResNet_Encoder(nn.Module):
     def __init__(self, args, depth, widen_factor, use_classifier, dropout_rate=0, input_channels=1):
         super(Wide_ResNet_Encoder, self).__init__()
+        self.args = args
         self.in_planes = 16
-        self.patch_size = args.patch_size
         self.use_classifier = use_classifier
 
-        assert ((depth-4)%6 == 0), 'Wide-resnet depth should be 6n+4'
+        assert ((depth-4) % 6 == 0), 'Wide-resnet depth should be 6n+4'
         n = (depth-4)/6
         k = widen_factor
 
         nStages = [16, 16*k, 32*k, 64*k]
 
         # If there isn't normalisation then the conv layers need biasing
-        bias = True if ( args.norm == "none" ) else False
+        bias = True if (args.norm == "none") else False
 
         self.conv1 = nn.Conv2d(input_channels, nStages[0], kernel_size=3, stride=1, padding=1, bias=bias)
         self.layer1 = self._wide_layer(args, wide_basic, nStages[1], n, dropout_rate, stride=1)
@@ -80,37 +81,24 @@ class Wide_ResNet_Encoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        ### Convert image to patches
-        # takes x as (batch_size, 1, 64, 64)
-        # patches it to (batch_size, 7, 7, 1, 16, 16)
-        # then flattens to (batch_size * 7 * 7, 1, 16, 16)
-        x = (
-            x.unfold(2, self.patch_size, self.patch_size // 2)
-            .unfold(3, self.patch_size, self.patch_size // 2)
-            .permute(0, 2, 3, 1, 4, 5)
-            .contiguous()
-        )
-        n_patches_x = x.shape[1] # In general this will be 7
-        n_patches_y = x.shape[2] # But it could be varied like in CPC V2
-        x = x.view(
-            x.shape[0] * x.shape[1] * x.shape[2], x.shape[3], x.shape[4], x.shape[5]
-        )
-        
-        ### Run the model
+        grid_size = self.args.grid_size
+
+        # Run the model
         z = self.conv1(x)
         z = self.layer1(z)
         z = self.layer2(z)
         z = self.layer3(z)
         z = F.relu(self.norm1(z))
         z = self.avgpool(z)
-        z = z.reshape(-1, n_patches_x, n_patches_y, z.shape[1]) # (batch_size, 7, 7, pred_size)
+        z = z.reshape(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, pred_size) 
 
-        ### Use classifier if specified
+        # Use classifier if specified
         if self.use_classifier:
             # Reshape z so that each image is seperate
-            z = z.view(z.shape[0], n_patches_x * n_patches_y, z.shape[3])
+            z = z.view(z.shape[0], grid_size * grid_size, z.shape[3])
 
-            z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
+            # mean for each image, (batch_size, pred_size)
+            z = torch.mean(z, dim=1)
             z = self.classifier(z)
             z = F.log_softmax(z, dim=1)
 

@@ -1,8 +1,8 @@
-from models.PixelCNN import PixelCNN
-from models.MobileNetV2_Encoder import MobileNetV2_Encoder    
-from models.ResNetV2_Encoder import PreActResNetN_Encoder
-from models.WideResNet_Encoder import Wide_ResNet_Encoder
-from models.InfoNCE_Loss import InfoNCE_Loss
+from cpc_models.PixelCNN import PixelCNN
+from cpc_models.MobileNetV2_Encoder import MobileNetV2_Encoder    
+from cpc_models.ResNetV2_Encoder import PreActResNetN_Encoder
+from cpc_models.WideResNet_Encoder import Wide_ResNet_Encoder
+from cpc_models.InfoNCE_Loss import InfoNCE_Loss
 
 import os
 import time
@@ -13,6 +13,7 @@ import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import kornia as K
 
 class CPC(nn.Module):
 
@@ -48,14 +49,15 @@ class CPC(nn.Module):
         )
 
     def forward(self, x):
-        # Input x is of shape (batch_size, 1, 64, 64)
+        # Input x = (batch_size * grid_size * grid_size, 1, patch_size, patch_size)
 
         # Find all encoding vectors
-        self.encodings = self.enc(x) # (batch_size, 7, 7, pred_size)
+        self.encodings = self.enc(x) # (batch_size, grid_size, grid_size, pred_size)
 
-        # permute encodings to (batch_size, pred_size, 7, 7) for ar network
-        self.encodings = self.encodings.permute(0,3,1,2).contiguous() # (batch_size, pred_size, 7, 7)
+        # Permute encodings to (batch_size, pred_size, grid_size, grid_size) for ar network
+        self.encodings = self.encodings.permute(0,3,1,2).contiguous() # (batch_size, pred_size, grid_size, grid_size)
 
+        # For each direction find context vectors and contrastive loss
         loss = 0
         for i in range(self.args.pred_directions):
             # rotate encoding 90 degrees clockwise for subsequent directtions
@@ -63,9 +65,9 @@ class CPC(nn.Module):
                 self.encodings = self.encodings.transpose(2,3).flip(3)
 
             # Find all context vectors
-            self.contexts = self.ar(self.encodings) # (batch_size, pred_size, 7, 7)
+            self.contexts = self.ar(self.encodings) # (batch_size, pred_size, grid_size, grid_size)
 
-            # Find Contrastive Loss
+            # Find contrastive loss
             loss += self.pred_loss[i](self.encodings, self.contexts)
 
         return loss

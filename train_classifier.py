@@ -1,11 +1,13 @@
-from models.MobileNetV2_Encoder import MobileNetV2_Encoder
-from models.MobileNetV2 import MobileNetV2
-from models.ResNetV2_Encoder import PreActResNetN_Encoder
-from models.ResNetV2 import PreActResNetN
-from models.WideResNet_Encoder import Wide_ResNet_Encoder
-from models.WideResNet import Wide_ResNet
+from cpc_models.MobileNetV2_Encoder import MobileNetV2_Encoder
+from cpc_models.ResNetV2_Encoder import PreActResNetN_Encoder
+from cpc_models.WideResNet_Encoder import Wide_ResNet_Encoder
+
+from baseline_models.MobileNetV2 import MobileNetV2
+from baseline_models.ResNetV2 import PreActResNetN
+from baseline_models.WideResNet import Wide_ResNet
 
 from data.data_handlers import *
+from data.image_preprocessing import preprocess
 from argparser.train_classifier_argparser import argparser
 
 import torch
@@ -17,30 +19,41 @@ from tqdm import tqdm
 import os
 
 # Process a batch, return accuracy and loss
-def fwd_pass(X, y, train=False):
+def fwd_pass(x, y, train=False):
+    # perform image pre processing - patchify and apply patch based augs if specified
+    x = preprocess(x, train, args)
+    
     # Run the network
     if train:
         net.zero_grad()
         net.train()
-        outputs = net(X)
+        outputs = net(x)
 
     if not train:
         net.eval()
+
+        # When testing don't use patch based augmentation
+        patch_based_aug_memory = args.patch_based_aug
+        args.patch_based_aug = False
+
         with torch.no_grad():
-            outputs = net(X)
+            outputs = net(x)
+
+        # Revert setting to what it was before testing
+        args.patch_based_aug = patch_based_aug_memory
 
     # Compute accuracy
-    matches = [torch.argmax(i) == j for i, j in zip(outputs,y)]
+    matches = [torch.argmax(i) == j for i, j in zip(outputs, y)]
     acc = matches.count(True)/len(matches)
 
     # Compute loss
-    loss = loss_function(outputs, y) 
+    loss = loss_function(outputs, y)
 
     if train:
         loss.backward()
         optimizer.step()
 
-    return loss, acc 
+    return loss, acc
 
 
 # Train net
@@ -50,7 +63,7 @@ def train():
     for epoch in range(1, args.epochs+1):
 
         for batch_img, batch_lbl in tqdm(train_loader, dynamic_ncols=True):
-            loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device), train=True)    
+            loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device), train=True)
 
         # at epoch intervals test the performance
         if epoch % args.test_interval == 0:
@@ -59,19 +72,19 @@ def train():
             if test_acc > best_acc:
                 best_acc = test_acc
                 best_epoch = epoch
-                
+
             print(f"Epoch: {epoch}/{args.epochs}\n"
-                f"Train: {loss:.4f}, {acc*100:.2f}%\n"
-                f"Test:  {test_loss:.4f}, {test_acc*100:.2f}%")
+                  f"Train: {loss:.4f}, {acc*100:.2f}%\n"
+                  f"Test:  {test_loss:.4f}, {test_acc*100:.2f}%")
         else:
             print(f"Epoch: {epoch}/{args.epochs}\n"
-                f"Train: {loss:.4f}, {acc*100:.2f}%")
+                  f"Train: {loss:.4f}, {acc*100:.2f}%")
 
         scheduler.step()
-        
+
         # for param_group in optimizer.param_groups:
         #     print(param_group['lr'])
-    
+
     print(f"Best Accuracy: {best_acc*100:.2f} - epoch {best_epoch}")
 
 
@@ -82,7 +95,7 @@ def test():
 
     # Process all of the test data
     for batch_img, batch_lbl in tqdm(test_loader, dynamic_ncols=True):
-        loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device))  
+        loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device))
         total_test_acc += acc
         total_test_loss += loss
 
@@ -115,9 +128,9 @@ if __name__ == "__main__":
             net = Wide_ResNet_Encoder(args, depth, widen_factor, use_classifier=True)
         elif args.encoder == "mobielnetV2":
             net = MobileNetV2_Encoder(args, use_classifier=True).to(args.device)
-        
+
         encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
-        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_{args.model_num}.pt"))        
+        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{args.model_num}.pt"))
         net = net.to(args.device)
 
         # Freeze encoder layers
@@ -131,7 +144,7 @@ if __name__ == "__main__":
     else:
         print("Training Fully Supervised")
 
-        # Load the network        
+        # Load the network
         if args.encoder[:6] == "resnet":
             net = PreActResNetN(args).to(args.device)
         elif args.encoder[:10] == "wideresnet":
@@ -156,11 +169,3 @@ if __name__ == "__main__":
         train()
     except KeyboardInterrupt:
         print("\nEnding Program on Keyboard Interrupt")
-
-    
-
-
-
-
-
-    

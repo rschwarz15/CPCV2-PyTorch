@@ -1,9 +1,6 @@
 # Modified From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/InfoNCE_Loss.py
 
-from models.model_utils import makeDeltaOrthogonal
-#from model_utils import makeDeltaOrthogonal
-
 import torch
 import torch.nn as nn
 from torch.nn.modules.loss import _WeightedLoss
@@ -12,7 +9,7 @@ import numpy as np
 import time
 
 class InfoNCE_Loss(nn.Module):
-    def __init__(self, args, in_channels, weight_init=False):
+    def __init__(self, args, in_channels):
         super().__init__()
         self.neg_samples = args.neg_samples
         self.pred_steps = args.pred_steps
@@ -23,23 +20,6 @@ class InfoNCE_Loss(nn.Module):
         )
 
         self.contrast_loss = ExpNLLLoss()
-
-        if weight_init:
-            self.initialize()
-
-    def initialize(self):
-        for m in self.modules():
-            if isinstance(m, (nn.Conv2d,)):
-                if m in self.W_k:
-                    # nn.init.kaiming_normal_(
-                    #     m.weight, mode="fan_in", nonlinearity="tanh"
-                    # )
-                    makeDeltaOrthogonal(
-                        m.weight,
-                        nn.init.calculate_gain(
-                            "Sigmoid"
-                        ),
-                    )
 
     def forward(self, z, c, skip_step=1):
         batch_size = z.shape[0]

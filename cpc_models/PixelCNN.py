@@ -2,8 +2,6 @@
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN.py
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/PixelCNN_Autoregressor.py
 
-from models.model_utils import makeDeltaOrthogonal
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -232,9 +230,8 @@ class PixelCNNGatedStack(nn.Module):
         return v, h, skips
 
 class PixelCNN(torch.nn.Module):
-    def __init__(self, in_channels, weight_init=False, pixelcnn_layers=4, **kwargs):
+    def __init__(self, in_channels, pixelcnn_layers=4, **kwargs):
         super().__init__()
-        self.weight_init = weight_init
 
         layer_objs = [
             PixelCNNGatedLayer.primary(
@@ -250,26 +247,6 @@ class PixelCNN(torch.nn.Module):
 
         self.stack = PixelCNNGatedStack(*layer_objs)
         self.stack_out = nn.Conv2d(in_channels, in_channels, 1)
-
-        if self.weight_init:
-            self.initialize()
-
-    def initialize(self):
-        for m in self.modules():
-            if isinstance(m, (nn.Conv2d,)):
-                if m is self.stack_out:
-                    # nn.init.kaiming_normal_(
-                    #     m.weight, mode="fan_in", nonlinearity="relu"
-                    # )
-                    makeDeltaOrthogonal(
-                        m.weight, nn.init.calculate_gain("relu")
-                    )
-                else:
-                    nn.init.kaiming_normal_(
-                        m.weight, mode="fan_in", nonlinearity="tanh"
-                    )
-            elif isinstance(m, (nn.BatchNorm3d, nn.BatchNorm2d)):
-                m.momentum = 0.3
 
     def forward(self, input):
         _, c_out, _ = self.stack(input, input)  # Bc, C, H, W
