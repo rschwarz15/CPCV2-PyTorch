@@ -2,9 +2,9 @@
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/data/get_dataloader.py
 
 import torch
-import torchvision.transforms as transforms
 import torchvision
-from torchvision.transforms import transforms
+import torchvision.transforms as transforms
+from data.image_preprocessing import patchify, patchify_augment
 
 import os
 from os import path
@@ -48,7 +48,7 @@ aug = {
     }
 }
 
-
+# Get transformations that are applied to "entire" image
 def get_transforms(args, eval, aug):
     trans = []
 
@@ -58,7 +58,7 @@ def get_transforms(args, eval, aug):
     if aug["randcrop"] and eval:
         trans.append(transforms.CenterCrop(aug["randcrop"]))
 
-    if args.image_resize:   # User Input
+    if args.image_resize:   # User Input - Note this is after cropping
         trans.append(transforms.Resize(args.image_resize))
 
     if aug["rand_horizontal_flip"] and not eval:
@@ -67,18 +67,20 @@ def get_transforms(args, eval, aug):
     if aug["grayscale"]:
         trans.append(transforms.Grayscale())
         trans.append(transforms.ToTensor())
-        trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"]))
+        #trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"])) # I THINK THIS IS REMOVED IN CPCV2?
     elif aug["mean"]:
         trans.append(transforms.ToTensor())
-        trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"]))
+        #trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"])) # I THINK THIS IS REMOVED IN CPCV2?
     else:
         trans.append(transforms.ToTensor())
+    
+    # Always patchify, during training if specified also augment
+    if eval or not args.patch_aug:
+        trans.append(patchify(grid_size=args.grid_size))
+    else:
+        trans.append(patchify_augment(grid_size=args.grid_size))
 
     trans = transforms.Compose(trans)
-
-    # Print training transorms
-    if not eval:
-        print(f"Entire Image Training Transformations: \n{trans}")
 
     return trans
 
@@ -114,40 +116,20 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
         test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers
     )
 
-    # create train/val split
-    if validate:
-        print("Use train / val split")
-
-        training_dataset = "train" if labeled else "unlabeled"
-
-        if training_dataset == "train":
-            dataset_size = len(train_dataset)
-            train_sampler, valid_sampler = create_validation_sampler(
-                dataset_size)
-
-            train_loader = torch.utils.data.DataLoader(
-                train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
-            )
-
-        elif training_dataset == "unlabeled":
-            dataset_size = len(unsupervised_dataset)
-            train_sampler, valid_sampler = create_validation_sampler(
-                dataset_size)
-
-            unsupervised_loader = torch.utils.data.DataLoader(
-                unsupervised_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
-            )
-
-        # overwrite test_dataset and _loader with validation set
-        test_dataset = torchvision.datasets.STL10(
-            data_path, split=training_dataset, transform=transform_valid, download=args.download_dataset,
+    # Take subset of training data for train_classifier
+    try:
+        train_size = args.train_size
+        indices = list(range(len(train_dataset)))
+        np.random.shuffle(indices)
+        train_indices = indices[:train_size]
+        train_sampler = torch.utils.data.sampler.SubsetRandomSampler(train_indices)
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
         )
-        test_loader = torch.utils.data.DataLoader(
-            test_dataset, batch_size=args.batch_size, sampler=valid_sampler, num_workers=num_workers,
-        )
-
-    else:
-        print("Use (train+val) / test split")
+    except AttributeError:  
+        # args.train_size is not defined during train_CPC
+        # train_loader is not needed during train_CPC
+        train_loader = None
 
     return (unsupervised_loader, train_loader, test_loader)
 
@@ -196,19 +178,18 @@ def get_cifar_dataloader(args, cifar_classes):
         test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers
     )
 
-    # Take subset of training data for classification training
+    # Take subset of training data for train_classifier
     try:
         train_size = args.train_size
-
         indices = list(range(len(unsupervised_dataset)))
         np.random.shuffle(indices)
         train_indices = indices[:train_size]
-        train_sampler = torch.utils.data.sampler.SubsetRandomSampler(
-            train_indices)
+        train_sampler = torch.utils.data.sampler.SubsetRandomSampler(train_indices)
         train_loader = torch.utils.data.DataLoader(
             unsupervised_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
         )
-    except AttributeError:  # args.train_size is not defined during train_CPC
+    except AttributeError:  
+        # args.train_size is not defined during train_CPC
         # train_loader is not needed during train_CPC
         train_loader = None
 

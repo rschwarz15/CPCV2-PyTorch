@@ -1,16 +1,16 @@
 from cpc_models.CPC import CPC
 from data.data_handlers import *
 from argparser.train_CPC_argparser import argparser
-from data.image_preprocessing import preprocess
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
+import os
 import time
 import numpy as np
 from tqdm import tqdm
-import os
 
 
 def train():
@@ -21,10 +21,7 @@ def train():
         prev_time = time.time()
         epoch_loss = 0
 
-        for i, (batch, _) in enumerate(tqdm(unsupervised_loader, disable=args.print_option, dynamic_ncols=True)):
-            # perform image pre processing - patchify and apply patch based augs if specified
-            batch = preprocess(batch, True, args)
-        
+        for i, (batch, _) in enumerate(tqdm(unsupervised_loader, disable=args.print_option, dynamic_ncols=True)):       
             net.zero_grad()
             loss = net(batch.to(args.device))
             loss = torch.mean(loss, dim=0)  # take mean over all GPUs
@@ -89,9 +86,9 @@ def distribute_over_GPUs(args, net):
 def save(net, epochs):
     saveNet = net.module  # unwrap DataParallel
     torch.save(saveNet.state_dict(),
-               f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{epochs}{args.model_name_ext}.pt")
+               f"{cpc_path}_{args.encoder}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{epochs}{args.model_name_ext}.pt")
     torch.save(saveNet.enc.state_dict(),
-               f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{epochs}{args.model_name_ext}.pt")
+               f"{encoder_path}_{args.encoder}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{epochs}{args.model_name_ext}.pt")
 
 
 if __name__ == "__main__":
@@ -104,7 +101,7 @@ if __name__ == "__main__":
     net = CPC(args)
     if args.trained_epochs:
         net.load_state_dict(torch.load(
-            f"{cpc_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{args.trained_epochs}{args.model_name_ext}.pt"))
+            f"{cpc_path}_{args.encoder}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{args.trained_epochs}{args.model_name_ext}.pt"))
     
     net = distribute_over_GPUs(args, net)
 
@@ -124,7 +121,7 @@ if __name__ == "__main__":
         unsupervised_loader, _, _ = get_cifar100_dataloader(args)
 
     # Train the network
-    print(f"Dataset: {args.dataset}, Encoder: {args.encoder}, Norm: {args.norm}, Pred Directions: {args.pred_directions}, Patch Aug: {args.patch_based_aug}")
+    print(f"Dataset: {args.dataset}, Encoder: {args.encoder}, Grid Size: {args.grid_size}, Norm: {args.norm}, Pred Directions: {args.pred_directions}, Patch Aug: {args.patch_aug}")
     try:
         train()
     except KeyboardInterrupt:

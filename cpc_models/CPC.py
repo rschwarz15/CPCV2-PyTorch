@@ -4,16 +4,8 @@ from cpc_models.ResNetV2_Encoder import PreActResNetN_Encoder
 from cpc_models.WideResNet_Encoder import Wide_ResNet_Encoder
 from cpc_models.InfoNCE_Loss import InfoNCE_Loss
 
-import os
-import time
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import numpy as np
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import kornia as K
 
 class CPC(nn.Module):
 
@@ -49,7 +41,7 @@ class CPC(nn.Module):
         )
 
     def forward(self, x):
-        # Input x = (batch_size * grid_size * grid_size, 1, patch_size, patch_size)
+        # Input x = (batch_size, grid_size, grid_size, 1, patch_size, patch_size)
 
         # Find all encoding vectors
         self.encodings = self.enc(x) # (batch_size, grid_size, grid_size, pred_size)

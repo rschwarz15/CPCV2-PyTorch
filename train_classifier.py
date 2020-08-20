@@ -7,21 +7,20 @@ from baseline_models.ResNetV2 import PreActResNetN
 from baseline_models.WideResNet import Wide_ResNet
 
 from data.data_handlers import *
-from data.image_preprocessing import preprocess
 from argparser.train_classifier_argparser import argparser
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
+import os
 import numpy as np
 from tqdm import tqdm
-import os
+
 
 # Process a batch, return accuracy and loss
 def fwd_pass(x, y, train=False):
-    # perform image pre processing - patchify and apply patch based augs if specified
-    x = preprocess(x, train, args)
     
     # Run the network
     if train:
@@ -31,16 +30,8 @@ def fwd_pass(x, y, train=False):
 
     if not train:
         net.eval()
-
-        # When testing don't use patch based augmentation
-        patch_based_aug_memory = args.patch_based_aug
-        args.patch_based_aug = False
-
         with torch.no_grad():
             outputs = net(x)
-
-        # Revert setting to what it was before testing
-        args.patch_based_aug = patch_based_aug_memory
 
     # Compute accuracy
     matches = [torch.argmax(i) == j for i, j in zip(outputs, y)]
@@ -56,7 +47,6 @@ def fwd_pass(x, y, train=False):
     return loss, acc
 
 
-# Train net
 def train():
     best_acc = 0
     best_epoch = 0
@@ -88,12 +78,10 @@ def train():
     print(f"Best Accuracy: {best_acc*100:.2f} - epoch {best_epoch}")
 
 
-# Process test data to find test loss/accuracy
 def test():
     total_test_acc = 0
     total_test_loss = 0
 
-    # Process all of the test data
     for batch_img, batch_lbl in tqdm(test_loader, dynamic_ncols=True):
         loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device))
         total_test_acc += acc
@@ -130,7 +118,7 @@ if __name__ == "__main__":
             net = MobileNetV2_Encoder(args, use_classifier=True).to(args.device)
 
         encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
-        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_based_aug}_{args.model_num}.pt"))
+        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{args.model_num}.pt"))
         net = net.to(args.device)
 
         # Freeze encoder layers

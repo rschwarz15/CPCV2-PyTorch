@@ -152,18 +152,10 @@ class MobileNetV2_Encoder(nn.Module):
         # This exists since TorchScript doesn't support inheritance, so the superclass method
         # (this one) needs to have a name other than `forward` that can be accessed in a subclass
         
-        ### Convert image to patches
-        # takes x as (batch_size, 1, 64, 64)
-        # patches it to (batch_size, 7, 7, 1, 16, 16)
-        # then flattens to (batch_size * 7 * 7, 1, 16, 16)
-        x = (
-            x.unfold(2, self.patch_size, self.patch_size // 2)
-            .unfold(3, self.patch_size, self.patch_size // 2)
-            .permute(0, 2, 3, 1, 4, 5)
-            .contiguous()
-        )
-        n_patches_x = x.shape[1]
-        n_patches_y = x.shape[2]
+        # Input x = (batch_size, grid_size, grid_size, 1, patch_size, patch_size)
+        grid_size = self.args.grid_size
+
+        # Flatten to (batch_size * grid_size * grid_size, 1, patch_size, patch_size)
         x = x.view(
             x.shape[0] * x.shape[1] * x.shape[2], x.shape[3], x.shape[4], x.shape[5]
         )

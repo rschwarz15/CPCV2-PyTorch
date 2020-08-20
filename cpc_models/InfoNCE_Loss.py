@@ -5,8 +5,6 @@ import torch
 import torch.nn as nn
 from torch.nn.modules.loss import _WeightedLoss
 import torch.nn.functional as F
-import numpy as np
-import time
 
 class InfoNCE_Loss(nn.Module):
     def __init__(self, args, in_channels):
