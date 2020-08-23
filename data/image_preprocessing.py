@@ -54,22 +54,24 @@ class patchify_augment(patchify):
 
     def __init__(self, grid_size):
         super(patchify_augment, self).__init__(grid_size=grid_size)
-            
+        
+        # As labeled certain transformations have been written so that they
+        # are applied on tensors, this alleviates the need to convert to PIL.Image
         self.transformations = [
-            self.ShearX, 
-            self.ShearY, 
-            self.TranslateX, 
-            self.TranslateY, 
-            self.Rotate, 
-            PIO.autocontrast, 
-            PIO.invert,
-            PIO.equalize, 
-            self.Solarize, 
-            self.Posterize, 
-            self.Contrast, 
-            self.Brightness, 
-            self.Sharpness, 
-            self.Cutout
+            self.ShearX, # PIL
+            self.ShearY, # PIL
+            self.TranslateX, # Tensor
+            self.TranslateY, # Tensor
+            self.Rotate, # PIL
+            PIO.autocontrast, # PIL 
+            self.Invert, # Tensor
+            PIO.equalize, # PIL 
+            self.Solarize, # Tensor
+            self.Posterize, # Tensor 
+            self.Contrast, # PIL 
+            self.Brightness, # PIL 
+            self.Sharpness, # PIL 
+            self.Cutout # Tensor
         ]
 
     def __call__(self, x):
@@ -78,32 +80,43 @@ class patchify_augment(patchify):
         
         self.patch_dim = (self.patch_size, self.patch_size)
 
-        # For each path apply augmentation
+        # For each path apply augmentation as in CPC V2
         for patch_row in range(self.grid_size):
             for patch_col in range(self.grid_size):
-                # Convert patch from tensor to PIL image
-                patch_PIL = transforms.ToPILImage()(x[patch_row][patch_col])
+                patch = x[patch_row][patch_col]
 
                 # Randomly choose two of the 16 transformations from AutoAugment
                 # Minus PIE.Color, since we're dealing with greyscale
                 for _ in range(2):
-                    rand = random.randint(0, len(self.transformations))
-                    if rand == len(self.transformations):
-                        # If rand == 15 then perform SamplePairing
+                    rand = random.randint(0, 14)
+
+                    # Tensor based functions - TranslateX/Y, Invert, Solarize, Posterize, Cutout
+                    if rand == 2 or rand == 3 or rand == 6 or rand == 8 or rand == 9 or rand == 13 : 
+                        transform = self.transformations[rand]
+                        x[patch_row][patch_col] = transform(patch)
+
+                    # Tensor based function - SamplePairing - requires two inputs
+                    elif rand == 14:
                         other_patch_row = random.randint(0, self.grid_size - 1)
                         other_patch_col = random.randint(0, self.grid_size - 1)
-                        other_patch_PIL = transforms.ToPILImage()(x[other_patch_row][other_patch_col])
-                        patch_PIL = self.SamplePairing(patch_PIL, other_patch_PIL)
-                    else:
-                        # Otherwise choose transform from transformations array
+                        other_patch = x[other_patch_row][other_patch_col]
+
+                        x[patch_row][patch_col] = self.SamplePairing(patch, other_patch)
+
+                    # PIL functions
+                    else:   
+                        # Convert patch from tensor to PIL image
+                        patch_PIL = transforms.ToPILImage()(patch)
+
+                        # Choose transform from transformations array
                         transform = self.transformations[rand]
                         patch_PIL = transform(patch_PIL)
 
-                # Randomly apply elastic deformation and shearing with p = 0.2
-                ### Currently not doing this
+                        # Convert PIL back to tensor
+                        x[patch_row][patch_col] = transforms.ToTensor()(patch_PIL)
 
-                # Convert PIL back to tensor
-                x[patch_row][patch_col] = transforms.ToTensor()(patch_PIL)
+                # Randomly apply elastic deformation and shearing with p = 0.2
+                ### Currently not doing - it is availabe in Albumentations
 
         return x
 
@@ -122,33 +135,60 @@ class patchify_augment(patchify):
         return pil_img.transform(self.patch_dim, Image.AFFINE, (1, 0, 0, level, 1, 0))
 
 
-    def TranslateX(self, pil_img):
+    def TranslateX(self, patch):
         # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2% of 331x331 image
         # 1/4 of patch - 1/2 seems excessive?
         pixels = random.randint(int(-self.patch_size/4), int(self.patch_size/4))
-        return pil_img.transform(self.patch_dim, Image.AFFINE, (1, 0, pixels, 0, 1, 0))
+
+        # (C, H, W) - columns are dim 2
+        if pixels < 0:
+            patch = torch.cat((patch[:,:,-pixels:], torch.zeros(1, self.patch_size, -pixels)), dim=2)
+        elif pixels > 0:
+            patch = torch.cat((torch.zeros(1, self.patch_size, pixels), patch[:,:,:self.patch_size-pixels]), dim=2)
+
+        return patch
+        #return pil_img.transform(self.patch_dim, Image.AFFINE, (1, 0, pixels, 0, 1, 0))
 
 
-    def TranslateY(self, pil_img):
+    def TranslateY(self, patch):
         # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2% of 331x331 image
         # 1/4 of patch - 1/2 seems excessive?
         pixels = random.randint(int(-self.patch_size/4), int(self.patch_size/4))
-        return pil_img.transform(self.patch_dim, Image.AFFINE, (1, 0, 0, 0, 1, pixels))
 
+        # (C, H, W) - rows are dim 1
+        if pixels < 0:
+            patch = torch.cat((patch[:,-pixels:,:], torch.zeros(1, -pixels, self.patch_size)), dim=1)
+        elif pixels > 0:
+            patch = torch.cat((torch.zeros(1, pixels, self.patch_size), patch[:,:self.patch_size-pixels,:]), dim=1)
+
+        return patch
+        #return pil_img.transform(self.patch_dim, Image.AFFINE, (1, 0, pixels, 0, 1, 0))
+        
 
     def Rotate(self, pil_img):
         degrees = random.random() * 60 - 30  # [-30, 30] as in AutoSegment
         return pil_img.rotate(degrees)
 
 
-    def Posterize(self, pil_img):
+    def Invert(self, patch):
+        return 1 - patch
+
+
+    def Solarize(self, patch):
+        threshold = random.random() # [0, 1) - equivalent to [0, 256] as in AutoSegment
+        cond = patch >= threshold
+        patch[cond] = 1 - patch[cond]
+        return patch
+        #threshold = random.randint(0, 256)  # [0, 256] as in AutoSegment
+        #return PIO.solarize(pil_img, threshold)
+
+
+    def Posterize(self, patch):
         bits = random.randint(4, 8)  # [4,8] as in AutoSegment
-        return PIO.posterize(pil_img, bits)
-
-
-    def Solarize(self, pil_img):
-        threshold = random.randint(0, 256)  # [4,8] as in AutoSegment
-        return PIO.solarize(pil_img, threshold)
+        bits = 4
+        patch = (patch * 255) // (2 ** (8 - bits)) * (2 ** (8-bits)) / 255
+        return patch
+        #return PIO.posterize(pil_img, bits)
 
 
     def Contrast(self, pil_img):
@@ -166,28 +206,19 @@ class patchify_augment(patchify):
         return PIE.Sharpness(pil_img).enhance(level)
 
 
-    def Cutout(self, pil_img):
+    def Cutout(self, patch):
         # Autoaugment does [0, 60] pixels which is eqiuvalent to ~1/5th of 331x331 image
         # 1/3 of patch otherwise they are too small
         size = random.randint(1, int(self.patch_size/3))
 
-        # generate top_left crop coordinate - note (0,0) is upper left
-        upper_coord_x = random.randint(0, self.patch_size - size)
-        upper_coord_y = random.randint(0, self.patch_size - size)
+        # generate top_left crop coordinate
+        x_coord = random.randint(0, self.patch_size - size)
+        y_coord = random.randint(0, self.patch_size - size)
 
-        for col in range(upper_coord_x, upper_coord_x + size):
-            for row in range(upper_coord_y, upper_coord_y + size):
-                pil_img.putpixel((col, row), 128)
+        patch[0][x_coord:x_coord+size, y_coord:y_coord+size] = 0.5
 
-        return pil_img
+        return patch
 
 
-    def SamplePairing(self, patch_PIL, other_patch_PIL):
-        # For all pixels avg it with other patch
-        for col in range(self.patch_size):
-            for row in range(self.patch_size):
-                avg_pixel = (patch_PIL.getpixel((col, row)) +
-                            other_patch_PIL.getpixel((col, row))) / 2
-                patch_PIL.putpixel((col, row), int(avg_pixel))
-
-        return patch_PIL
+    def SamplePairing(self, patch, other_patch):
+        return torch.true_divide(patch + other_patch, 2)

@@ -12,7 +12,6 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
-num_workers = 1
 
 aug = {
     "stl10": {
@@ -75,10 +74,10 @@ def get_transforms(args, eval, aug):
         trans.append(transforms.ToTensor())
     
     # Always patchify, during training if specified also augment
-    if eval or not args.patch_aug:
-        trans.append(patchify(grid_size=args.grid_size))
-    else:
+    if not eval and args.patch_aug:
         trans.append(patchify_augment(grid_size=args.grid_size))
+    else:
+        trans.append(patchify(grid_size=args.grid_size))
 
     trans = transforms.Compose(trans)
 
@@ -107,13 +106,13 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
 
     # Get DataLoaders
     unsupervised_loader = torch.utils.data.DataLoader(
-        unsupervised_dataset, batch_size=args.batch_size, shuffle=True, num_workers=num_workers,
+        unsupervised_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
     )
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=num_workers
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
     )
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers
+        test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers
     )
 
     # Take subset of training data for train_classifier
@@ -124,7 +123,7 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
         train_indices = indices[:train_size]
         train_sampler = torch.utils.data.sampler.SubsetRandomSampler(train_indices)
         train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
+            train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=args.num_workers,
         )
     except AttributeError:  
         # args.train_size is not defined during train_CPC
@@ -172,10 +171,10 @@ def get_cifar_dataloader(args, cifar_classes):
 
     # Get DataLoaders
     unsupervised_loader = torch.utils.data.DataLoader(
-        unsupervised_dataset, batch_size=args.batch_size, shuffle=True, num_workers=num_workers
+        unsupervised_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
     )
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers
+        test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers
     )
 
     # Take subset of training data for train_classifier
@@ -186,7 +185,7 @@ def get_cifar_dataloader(args, cifar_classes):
         train_indices = indices[:train_size]
         train_sampler = torch.utils.data.sampler.SubsetRandomSampler(train_indices)
         train_loader = torch.utils.data.DataLoader(
-            unsupervised_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=num_workers,
+            unsupervised_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=args.num_workers,
         )
     except AttributeError:  
         # args.train_size is not defined during train_CPC

@@ -8,6 +8,7 @@ def argparser():
     parser.add_argument('--dataset',          type=str,   metavar='', default="stl10",    help="Dataset to Use (stl10, cifar10, cifar100)")
     parser.add_argument('--epochs',           type=int,   metavar='', default=300,        help="Number of Epochs for Training")
     parser.add_argument('--trained_epochs',   type=int,   metavar='', default=0,          help="Number of epochs already trained, will load from TrainedModels")
+    parser.add_argument('--num_workers',      type=int,   metavar='', default=1,          help="Number of workers to be used in dataloader")
     parser.add_argument('--batch_size',       type=int,   metavar='', default=16,         help="Batch Size")
     parser.add_argument('--lr',               type=float, metavar='', default=2e-4,       help="Learning Rate")
     parser.add_argument('--pred_steps',       type=int,   metavar='', default=5,          help="Number of Predictions Steps")

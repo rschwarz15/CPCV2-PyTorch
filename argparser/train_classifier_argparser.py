@@ -14,6 +14,7 @@ def argparser():
     parser.add_argument('--epochs',           type=int,   metavar='', default=110,        help="Number of Epochs for Training")
     parser.add_argument('--sched_step_size',  type=int,   metavar='', default=100,        help="Schedular Step Size")
     parser.add_argument('--sched_milestones', type=str,   metavar='', default="",         help="For using optimizer with MultiStepLR - Takes a string of comma seperated milestones '50,100,150'")
+    parser.add_argument('--num_workers',      type=int,   metavar='', default=1,          help="Number of workers to be used in dataloader")
     parser.add_argument('--batch_size',       type=int,   metavar='', default=100,        help="Batch Size")
     parser.add_argument('--lr',               type=float, metavar='', default=0.1,        help="Learning Rate")
     parser.add_argument('--pred_directions',  type=int,   metavar='', default=1,          help="Number of Directions that was used in CPC training")
