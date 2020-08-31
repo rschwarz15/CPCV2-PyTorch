@@ -86,9 +86,9 @@ def distribute_over_GPUs(args, net):
 def save(net, epochs):
     saveNet = net.module  # unwrap DataParallel
     torch.save(saveNet.state_dict(),
-               f"{cpc_path}_{args.encoder}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{epochs}{args.model_name_ext}.pt")
+               f"{cpc_path}_{args.encoder}_crop{args.crop}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{epochs}{args.model_name_ext}.pt")
     torch.save(saveNet.enc.state_dict(),
-               f"{encoder_path}_{args.encoder}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{epochs}{args.model_name_ext}.pt")
+               f"{encoder_path}_{args.encoder}_crop{args.crop}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{epochs}{args.model_name_ext}.pt")
 
 
 if __name__ == "__main__":
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     net = CPC(args)
     if args.trained_epochs:
         net.load_state_dict(torch.load(
-            f"{cpc_path}_{args.encoder}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{args.trained_epochs}{args.model_name_ext}.pt"))
+            f"{cpc_path}_{args.encoder}_crop{args.crop}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{args.trained_epochs}{args.model_name_ext}.pt"))
     
     net = distribute_over_GPUs(args, net)
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
         unsupervised_loader, _, _ = get_cifar100_dataloader(args)
 
     # Train the network
-    print(f"Dataset: {args.dataset}, Encoder: {args.encoder}, Grid Size: {args.grid_size}, Norm: {args.norm}, Pred Directions: {args.pred_directions}, Patch Aug: {args.patch_aug}")
+    print(f"Dataset: {args.dataset}, Encoder: {args.encoder}, Crop: {args.crop}, Grid Size: {args.grid_size}, Norm: {args.norm}, Pred Directions: {args.pred_directions}, Patch Aug: {args.patch_aug}")
     try:
         train()
     except KeyboardInterrupt:

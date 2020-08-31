@@ -17,7 +17,5 @@ class MobileNetV2(nn.Module):
         self.model.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
 
     def forward(self, x):   
-        x = self.model(x)
-        x = F.log_softmax(x, dim=1)
-        
+        x = self.model(x)        
         return x

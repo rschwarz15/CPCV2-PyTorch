@@ -65,5 +65,4 @@ class Wide_ResNet(nn.Module):
         out = self.avgpool(out)
         out = out.view(out.size(0), -1)
         out = self.linear(out)
-
-        return F.log_softmax(out, dim=1)
+        return out

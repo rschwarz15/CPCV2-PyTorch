@@ -15,8 +15,6 @@ import matplotlib.pyplot as plt
 
 aug = {
     "stl10": {
-        "randcrop": 64,
-        "randcrop_padding": None,
         "rand_horizontal_flip": True,
         "grayscale": True,
         # values for train+unsupervised combined
@@ -26,8 +24,6 @@ aug = {
         "bw_std": [0.257203],
     },
     "cifar10": {
-        "randcrop": 32,
-        "randcrop_padding": 4,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.49139968, 0.48215827, 0.44653124],
@@ -36,8 +32,6 @@ aug = {
         "bw_std": [0.23919088],
     },
     "cifar100": {
-        "randcrop": 32,
-        "randcrop_padding": 4,
         "rand_horizontal_flip": True,
         "grayscale": True,
         "mean": [0.5070746, 0.48654896, 0.44091788],
@@ -51,11 +45,10 @@ aug = {
 def get_transforms(args, eval, aug):
     trans = []
 
-    if aug["randcrop"] and not eval:
-        trans.append(transforms.RandomCrop(aug["randcrop"], aug["randcrop_padding"]))
-
-    if aug["randcrop"] and eval:
-        trans.append(transforms.CenterCrop(aug["randcrop"]))
+    if not eval:
+        trans.append(transforms.RandomCrop(args.crop_size, args.padding))
+    else:
+        trans.append(transforms.CenterCrop(args.crop_size))
 
     if args.image_resize:   # User Input - Note this is after cropping
         trans.append(transforms.Resize(args.image_resize))
@@ -66,18 +59,22 @@ def get_transforms(args, eval, aug):
     if aug["grayscale"]:
         trans.append(transforms.Grayscale())
         trans.append(transforms.ToTensor())
-        #trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"])) # I THINK THIS IS REMOVED IN CPCV2?
+
+        if args.fully_supervised:
+            trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"])) # This is removed in CPCV2?
     elif aug["mean"]:
         trans.append(transforms.ToTensor())
-        #trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"])) # I THINK THIS IS REMOVED IN CPCV2?
+        if args.fully_supervised:            
+            trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"])) # This is removed in CPCV2?
     else:
         trans.append(transforms.ToTensor())
     
-    # Always patchify, during training if specified also augment
-    if not eval and args.patch_aug:
-        trans.append(patchify_augment(grid_size=args.grid_size))
-    else:
-        trans.append(patchify(grid_size=args.grid_size))
+    # If training CPC then patchify, during training if specified also augment
+    if not args.fully_supervised:
+        if not eval and args.patch_aug:
+            trans.append(patchify_augment(grid_size=args.grid_size))
+        else:
+            trans.append(patchify(grid_size=args.grid_size))
 
     trans = transforms.Compose(trans)
 

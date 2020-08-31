@@ -10,15 +10,17 @@ def argparser():
 
     # optional
     parser.add_argument('--dataset',          type=str,   metavar='', default="stl10",    help="Dataset to Use (stl10, cifar10, cifar100)")
-    parser.add_argument('--train_size',       type=int,   metavar='', default=5000,       help="Set the size of the training data - default STL10 - if greater than dataset size then uses all")
+    parser.add_argument('--train_size',       type=int,   metavar='', default=5000,       help="Set the size of the training data - default STL10")
     parser.add_argument('--epochs',           type=int,   metavar='', default=110,        help="Number of Epochs for Training")
     parser.add_argument('--sched_step_size',  type=int,   metavar='', default=100,        help="Schedular Step Size")
     parser.add_argument('--sched_milestones', type=str,   metavar='', default="",         help="For using optimizer with MultiStepLR - Takes a string of comma seperated milestones '50,100,150'")
     parser.add_argument('--num_workers',      type=int,   metavar='', default=1,          help="Number of workers to be used in dataloader")
     parser.add_argument('--batch_size',       type=int,   metavar='', default=100,        help="Batch Size")
     parser.add_argument('--lr',               type=float, metavar='', default=0.1,        help="Learning Rate")
+    parser.add_argument('--lr_gamma',         type=float, metavar='', default=0.1,        help="Gamma value for scheduler, i.e. how much to multiply by")
     parser.add_argument('--pred_directions',  type=int,   metavar='', default=1,          help="Number of Directions that was used in CPC training")
     parser.add_argument('--grid_size',        type=int,   metavar='', default=7,          help="Size of the grid of patches that the image is broken down to")
+    parser.add_argument('--crop',             type=str,   metavar='', default="0-0",      help="CropSize-Padding (i.e. 64-2 would crop to 64 pixels with 2 pixels padding)")
     parser.add_argument('--image_resize',     type=int,   metavar='', default=0,          help="If changed, 'after cropping' the image will be resized to the given value ")
     parser.add_argument('--encoder',          type=str,   metavar='', default="resnet18", help="Which encoder to use (resnet18/34/50/101/152, wideresnet-depth-width, mobilenetV2)")
     parser.add_argument('--norm',             type=str,   metavar='', default="none",     help="What normalisation layer to use (none, batch, layer)")
@@ -50,5 +52,15 @@ def argparser():
     if args.fully_supervised and args.lr == 0.1:
         print("For fully supervised training lr has been changed to 1e-3")
         args.lr = 1e-3
+
+    # Extract crop data
+    if args.crop == "0-0":
+        if args.dataset == "stl10":
+            args.crop = "64-0"
+        elif args.dataset in ("cifar10", "cifar100"):
+            args.crop = "32-4" 
+    crop_parameters = args.crop.split("-")
+    args.crop_size = int(crop_parameters[0])
+    args.padding = int(crop_parameters[1])
 
     return args

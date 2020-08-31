@@ -15,7 +15,8 @@ def argparser():
     parser.add_argument('--pred_directions',  type=int,   metavar='', default=1,          help="Number of Directions that was used in CPC training")
     parser.add_argument('--neg_samples',      type=int,   metavar='', default=16,         help="Number of Negative Samples for InfoNCE Loss")
     parser.add_argument('--grid_size',        type=int,   metavar='', default=7,          help="Size of the grid of patches that the image is broken down to")
-    parser.add_argument('--image_resize',     type=int,   metavar='', default=0,          help="If changed, 'after cropping' the image will be resized to the given value ")
+    parser.add_argument('--crop',             type=str,   metavar='', default="0-0",      help="CropSize-Padding (i.e. 64-2 would crop to 64 pixels with 2 pixels padding)")
+    parser.add_argument('--image_resize',     type=int,   metavar='', default=0,          help="If changed, 'after cropping' the image will be resized to the given value")
     parser.add_argument('--encoder',          type=str,   metavar='', default="resnet18", help="Which encoder to use (resnet18/34/50/101/152, wideresnet-depth-width, mobilenetV2)")
     parser.add_argument('--norm',             type=str,   metavar='', default="none",     help="What normalisation layer to use (none, batch, layer)")
     parser.add_argument('--print_option',     type=int,   metavar='', default=0,          help="How results are displayed whilst training (0=tqdm, 1=interval statistics, other=End of Epoch only)")
@@ -46,6 +47,18 @@ def argparser():
     # Check grid_size and pred_steps combination
     if args.pred_steps > args.grid_size - 2:
         raise Exception("To many predictions steps given the size of the grid")
+
+    # Extract crop data
+    if args.crop == "0-0":
+        if args.dataset == "stl10":
+            args.crop = "64-0"
+        elif args.dataset in ("cifar10", "cifar100"):
+            args.crop = "32-4" 
+    crop_parameters = args.crop.split("-")
+    args.crop_size = int(crop_parameters[0])
+    args.padding = int(crop_parameters[1])
+
+    args.fully_supervised = False
 
     return args
     

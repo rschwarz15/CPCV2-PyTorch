@@ -164,7 +164,7 @@ class MobileNetV2_Encoder(nn.Module):
         z = self.features(x)
         # Cannot use "squeeze" as batch-size can be 1 => must use reshape with z.shape[0]
         z = nn.functional.adaptive_avg_pool2d(z, 1).reshape(z.shape[0], -1)
-        z = z.reshape(-1, n_patches_x, n_patches_y, z.shape[1]) 
+        z = z.reshape(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, pred_size)
 
         ### Use classifier if specified
         if self.use_classifier:
@@ -173,7 +173,6 @@ class MobileNetV2_Encoder(nn.Module):
 
             z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
             z = self.classifier(z)
-            z = F.log_softmax(z, dim=1)
 
         return z
 

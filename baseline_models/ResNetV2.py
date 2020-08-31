@@ -115,7 +115,7 @@ class PreActResNet(nn.Module):
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
         out = self.linear(out)
-        return F.log_softmax(out, dim=1)
+        return out
 
 
 def PreActResNet18(args):

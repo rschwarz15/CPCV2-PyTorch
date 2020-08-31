@@ -156,7 +156,6 @@ class PreActResNet_Encoder(nn.Module):
             # mean for each image, (batch_size, pred_size)
             z = torch.mean(z, dim=1)
             z = self.classifier(z)
-            z = F.log_softmax(z, dim=1)
 
         return z
 
