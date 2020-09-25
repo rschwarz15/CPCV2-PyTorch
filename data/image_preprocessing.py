@@ -29,8 +29,8 @@ class patchify(object):
             else:
                 raise Exception("The specified grid size did not fit the image")
 
-        # Input x = (1, img_size, img_size)
-        # Patchify to (grid_size, grid_size, 1, patch_size, patch_size)
+        # Input x = (channels, img_size, img_size)
+        # Patchify to (grid_size, grid_size, channels, patch_size, patch_size)
         x = (
             x.unfold(1, self.patch_size, self.patch_size // 2)
             .unfold(2, self.patch_size, self.patch_size // 2)
@@ -46,14 +46,15 @@ class patchify(object):
 
 class patchify_augment(patchify):
     """ 
-    Extends Patchify
+    Extends Patchify for greyscale images
     Converts a tensor (C x H x W) to a grid of tensors (grid_size x grid_size x C x patch_size x patch_size)
     Then for each patch applies 2 of the AutoAugment transformations
     Returns a tensor of (grid_size x grid_size x C x patch_size x patch_size)
     """
 
-    def __init__(self, grid_size):
-        super(patchify_augment, self).__init__(grid_size=grid_size)
+    def __init__(self, grey, grid_size):
+        super().__init__(grid_size=grid_size)
+        self.grey = grey
         
         # As labeled certain transformations have been written so that they
         # are applied on tensors, this alleviates the need to convert to PIL.Image
@@ -74,9 +75,12 @@ class patchify_augment(patchify):
             self.Cutout # Tensor
         ]
 
+        if not grey:
+            self.transformations.append(self.Color)
+
     def __call__(self, x):
         # Patchify using parent class
-        x = super(patchify_augment, self).__call__(x) 
+        x = super().__call__(x) 
         
         self.patch_dim = (self.patch_size, self.patch_size)
 
@@ -85,10 +89,9 @@ class patchify_augment(patchify):
             for patch_col in range(self.grid_size):
                 patch = x[patch_row][patch_col]
 
-                # Randomly choose two of the 16 transformations from AutoAugment
-                # Minus PIE.Color, since we're dealing with greyscale
+                # Randomly choose two of the 16 (15 if greyscale) transformations from AutoAugment
                 for _ in range(2):
-                    rand = random.randint(0, 14)
+                    rand = random.randint(0, len(self.transformations)) 
 
                     # Tensor based functions - TranslateX/Y, Invert, Solarize, Posterize, Cutout
                     if rand == 2 or rand == 3 or rand == 6 or rand == 8 or rand == 9 or rand == 13 : 
@@ -96,7 +99,7 @@ class patchify_augment(patchify):
                         x[patch_row][patch_col] = transform(patch)
 
                     # Tensor based function - SamplePairing - requires two inputs
-                    elif rand == 14:
+                    elif rand == len(self.transformations):
                         other_patch_row = random.randint(0, self.grid_size - 1)
                         other_patch_col = random.randint(0, self.grid_size - 1)
                         other_patch = x[other_patch_row][other_patch_col]
@@ -121,10 +124,11 @@ class patchify_augment(patchify):
         return x
 
     def __repr__(self):
-        return self.__class__.__name__ + '(grid_size={0})'.format(self.grid_size)
+        return self.__class__.__name__ + f'(grid_size={self.grid_size} - colour={not self.grey})'
 
-    # The following transformation functions are largely based on:
+    # The following transformation functions are either on:
     # https://github.com/tensorflow/models/blob/master/research/autoaugment/augmentation_transforms.py
+    # or written to be performed directly on Tensors
     def ShearX(self, pil_img):
         level = random.random() * 0.6 - 0.3  # [-0.3,0.3] As in AutoAugment
         return pil_img.transform(self.patch_dim, Image.AFFINE, (1, level, 0, 0, 1, 0))
@@ -136,30 +140,32 @@ class patchify_augment(patchify):
 
 
     def TranslateX(self, patch):
-        # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2% of 331x331 image
-        # 1/4 of patch - 1/2 seems excessive?
+        # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2 of 331x331 image
+        # 1/4 of patch - 1/2 seems excessive
         pixels = random.randint(int(-self.patch_size/4), int(self.patch_size/4))
+        channels = patch.shape[0]
 
         # (C, H, W) - columns are dim 2
         if pixels < 0:
-            patch = torch.cat((patch[:,:,-pixels:], torch.zeros(1, self.patch_size, -pixels)), dim=2)
+            patch = torch.cat((patch[:,:,-pixels:], torch.zeros(channels, self.patch_size, -pixels)), dim=2)
         elif pixels > 0:
-            patch = torch.cat((torch.zeros(1, self.patch_size, pixels), patch[:,:,:self.patch_size-pixels]), dim=2)
+            patch = torch.cat((torch.zeros(channels, self.patch_size, pixels), patch[:,:,:self.patch_size-pixels]), dim=2)
 
         return patch
         #return pil_img.transform(self.patch_dim, Image.AFFINE, (1, 0, pixels, 0, 1, 0))
 
 
     def TranslateY(self, patch):
-        # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2% of 331x331 image
-        # 1/4 of patch - 1/2 seems excessive?
+        # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2 of 331x331 image
+        # 1/4 of patch - 1/2 seems excessive
         pixels = random.randint(int(-self.patch_size/4), int(self.patch_size/4))
+        channels = patch.shape[0]
 
         # (C, H, W) - rows are dim 1
         if pixels < 0:
-            patch = torch.cat((patch[:,-pixels:,:], torch.zeros(1, -pixels, self.patch_size)), dim=1)
+            patch = torch.cat((patch[:,-pixels:,:], torch.zeros(channels, -pixels, self.patch_size)), dim=1)
         elif pixels > 0:
-            patch = torch.cat((torch.zeros(1, pixels, self.patch_size), patch[:,:self.patch_size-pixels,:]), dim=1)
+            patch = torch.cat((torch.zeros(channels, pixels, self.patch_size), patch[:,:self.patch_size-pixels,:]), dim=1)
 
         return patch
         #return pil_img.transform(self.patch_dim, Image.AFFINE, (1, 0, pixels, 0, 1, 0))
@@ -196,6 +202,11 @@ class patchify_augment(patchify):
         return PIE.Contrast(pil_img).enhance(level)
 
 
+    def Color(self, pil_img):
+        level = random.random() * 1.8 + 0.1  # [0.1,1.9] As in AutoAugment
+        return PIE.Color(pil_img).enhance(level)
+
+
     def Brightness(self, pil_img):
         level = random.random() * 1.8 + 0.1  # [0.1,1.9] As in AutoAugment
         return PIE.Brightness(pil_img).enhance(level)
@@ -210,12 +221,14 @@ class patchify_augment(patchify):
         # Autoaugment does [0, 60] pixels which is eqiuvalent to ~1/5th of 331x331 image
         # 1/3 of patch otherwise they are too small
         size = random.randint(1, int(self.patch_size/3))
+        channels = patch.shape[0]
 
         # generate top_left crop coordinate
         x_coord = random.randint(0, self.patch_size - size)
         y_coord = random.randint(0, self.patch_size - size)
 
-        patch[0][x_coord:x_coord+size, y_coord:y_coord+size] = 0.5
+        for i in range(channels):
+            patch[i][x_coord:x_coord+size, y_coord:y_coord+size] = 0.5
 
         return patch
 

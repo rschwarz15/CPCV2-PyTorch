@@ -28,7 +28,9 @@ def argparser():
 
     parser.add_argument('--fully_supervised', action='store_true',                        help="When set will train a fully supeverised model")
     parser.add_argument('--download_dataset', action='store_true',                        help="Download the chosen dataset")
-    parser.add_argument('--patch_aug',        action='store_true',                        help="Apply path-based data augmentation as in CPC V2")
+    parser.add_argument('--patch_aug',        action='store_true',                        help="Apply patch-based data augmentation as in CPC V2")
+    parser.add_argument('--cpc_patch_aug',    action='store_true',                        help="Whether unsupervised training used patch-based data augmentation as in CPC V2")
+    parser.add_argument('--grey',             action='store_true',                        help="Convert to greyscale")
 
     args = parser.parse_args()
 

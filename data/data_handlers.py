@@ -4,7 +4,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from data.image_preprocessing import patchify, patchify_augment
+from data.image_preprocessing import *
 
 import os
 from os import path
@@ -15,8 +15,6 @@ import matplotlib.pyplot as plt
 
 aug = {
     "stl10": {
-        "rand_horizontal_flip": True,
-        "grayscale": True,
         # values for train+unsupervised combined
         "mean": [0.44087532, 0.42790526, 0.3867924],
         "std": [0.26826888, 0.2610458, 0.2686684],
@@ -24,16 +22,12 @@ aug = {
         "bw_std": [0.257203],
     },
     "cifar10": {
-        "rand_horizontal_flip": True,
-        "grayscale": True,
         "mean": [0.49139968, 0.48215827, 0.44653124],
         "std": [0.24703233, 0.24348505, 0.26158768],
         "bw_mean": [0.4808616],
         "bw_std": [0.23919088],
     },
     "cifar100": {
-        "rand_horizontal_flip": True,
-        "grayscale": True,
         "mean": [0.5070746, 0.48654896, 0.44091788],
         "std": [0.26733422, 0.25643846, 0.27615058],
         "bw_mean": [0.48748648],
@@ -44,39 +38,45 @@ aug = {
 # Get transformations that are applied to "entire" image
 def get_transforms(args, eval, aug):
     trans = []
-
+    
+    # Crop full image
     if not eval:
         trans.append(transforms.RandomCrop(args.crop_size, args.padding))
     else:
         trans.append(transforms.CenterCrop(args.crop_size))
 
-    if args.image_resize:   # User Input - Note this is after cropping
+    # Resize image after cropping
+    if args.image_resize:
         trans.append(transforms.Resize(args.image_resize))
 
-    if aug["rand_horizontal_flip"] and not eval:
+    # Flip image
+    if not eval:
         trans.append(transforms.RandomHorizontalFlip())
 
-    if aug["grayscale"]:
+    # Greyscale, Convert to Tensor and Normalise
+    if args.grey:
         trans.append(transforms.Grayscale())
         trans.append(transforms.ToTensor())
-
-        if args.fully_supervised:
-            trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"])) # This is removed in CPCV2?
-    elif aug["mean"]:
-        trans.append(transforms.ToTensor())
-        if args.fully_supervised:            
-            trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"])) # This is removed in CPCV2?
+        if not args.patch_aug:
+            trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"]))
     else:
         trans.append(transforms.ToTensor())
-    
-    # If training CPC then patchify, during training if specified also augment
+        if not args.patch_aug:
+            trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"]))
+
+    # If training CPC then patchify, if required also augment
     if not args.fully_supervised:
         if not eval and args.patch_aug:
-            trans.append(patchify_augment(grid_size=args.grid_size))
+            if args.grey:
+                trans.append(patchify_augment(grey=args.grey, grid_size=args.grid_size))
+                # -- May add other steps of CPCV2 for colour --
         else:
             trans.append(patchify(grid_size=args.grid_size))
 
     trans = transforms.Compose(trans)
+
+    s = "Testing" if eval else "Training"
+    print(s + ": " + str(trans))
 
     return trans
 
@@ -231,26 +231,18 @@ def calculate_normalisation(dataset):
         train_set = torchvision.datasets.STL10(
             root=data_path, split="train+unlabeled", download=True, transform=train_transform)
 
-        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(
-            len(train_set))])  # concatenate each channel
-        c2 = np.concatenate([np.asarray(train_set[i][0][1])
-                             for i in range(len(train_set))])
-        c3 = np.concatenate([np.asarray(train_set[i][0][2])
-                             for i in range(len(train_set))])
+        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])  # concatenate each channel
+        c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
+        c3 = np.concatenate([np.asarray(train_set[i][0][2]) for i in range(len(train_set))])
 
-        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(
-            c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
-        train_std = [np.std(c1, axis=(0, 1)), np.std(
-            c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
+        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
+        train_std = [np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
-        # grayscale
-        train_transform = transforms.Compose(
-            [transforms.Grayscale(), transforms.ToTensor()])
-        train_set = torchvision.datasets.STL10(
-            root=data_path, split="train+unlabeled", download=True, transform=train_transform)
+        # Greyscale
+        train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
+        train_set = torchvision.datasets.STL10(root=data_path, split="train+unlabeled", download=True, transform=train_transform)
 
-        c = np.concatenate([np.asarray(train_set[i][0][0])
-                            for i in range(len(train_set))])
+        c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
 
         grey_train_mean = [np.mean(c, axis=(0, 1,))]
         grey_train_std = [np.std(c, axis=(0, 1))]
@@ -266,26 +258,18 @@ def calculate_normalisation(dataset):
         train_set = torchvision.datasets.CIFAR10(
             root=data_path, train=True, download=True, transform=train_transform)
 
-        c1 = np.concatenate([np.asarray(train_set[i][0][0])
-                             for i in range(len(train_set))])
-        c2 = np.concatenate([np.asarray(train_set[i][0][1])
-                             for i in range(len(train_set))])
-        c3 = np.concatenate([np.asarray(train_set[i][0][2])
-                             for i in range(len(train_set))])
+        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
+        c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
+        c3 = np.concatenate([np.asarray(train_set[i][0][2]) for i in range(len(train_set))])
 
-        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(
-            c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
-        train_std = [np.std(c1, axis=(0, 1)), np.std(
-            c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
+        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
+        train_std = [np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
-        # grayscale
-        train_transform = transforms.Compose(
-            [transforms.Grayscale(), transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR10(
-            root=data_path, train=True, download=True, transform=train_transform)
+        # Greyscale
+        train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
+        train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=train_transform)
 
-        c = np.concatenate([np.asarray(train_set[i][0][0])
-                            for i in range(len(train_set))])
+        c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
 
         grey_train_mean = [np.mean(c, axis=(0, 1,))]
         grey_train_std = [np.std(c, axis=(0, 1))]
@@ -298,29 +282,20 @@ def calculate_normalisation(dataset):
 
         # RGB
         train_transform = transforms.Compose([transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR100(
-            root=data_path, train=True, download=True, transform=train_transform)
+        train_set = torchvision.datasets.CIFAR100(root=data_path, train=True, download=True, transform=train_transform)
 
-        c1 = np.concatenate([np.asarray(train_set[i][0][0])
-                             for i in range(len(train_set))])
-        c2 = np.concatenate([np.asarray(train_set[i][0][1])
-                             for i in range(len(train_set))])
-        c3 = np.concatenate([np.asarray(train_set[i][0][2])
-                             for i in range(len(train_set))])
+        c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
+        c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
+        c3 = np.concatenate([np.asarray(train_set[i][0][2]) for i in range(len(train_set))])
 
-        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(
-            c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
-        train_std = [np.std(c1, axis=(0, 1)), np.std(
-            c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
+        train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
+        train_std = [np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
-        # grayscale
-        train_transform = transforms.Compose(
-            [transforms.Grayscale(), transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR100(
-            root=data_path, train=True, download=True, transform=train_transform)
+        # Greyscale
+        train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
+        train_set = torchvision.datasets.CIFAR100(root=data_path, train=True, download=True, transform=train_transform)
 
-        c = np.concatenate([np.asarray(train_set[i][0][0])
-                            for i in range(len(train_set))])
+        c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
 
         grey_train_mean = [np.mean(c, axis=(0, 1,))]
         grey_train_std = [np.std(c, axis=(0, 1))]

@@ -28,9 +28,15 @@ class wide_basic(nn.Module):
         return out
 
 class Wide_ResNet(nn.Module):
-    def __init__(self, args, depth, widen_factor, dropout_rate=0, input_channels=1):
+    def __init__(self, args, depth, widen_factor, dropout_rate=0):
         super(Wide_ResNet, self).__init__()
         self.in_planes = 16
+
+        # Greyscale or Coloured
+        if args.grey:
+            input_channels = 1
+        else:
+            input_channels = 3
 
         assert ((depth-4)%6 ==0), 'Wide-resnet depth should be 6n+4'
         n = (depth-4)/6

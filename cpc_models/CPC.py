@@ -41,7 +41,7 @@ class CPC(nn.Module):
         )
 
     def forward(self, x):
-        # Input x = (batch_size, grid_size, grid_size, 1, patch_size, patch_size)
+        # Input x = (batch_size, grid_size, grid_size, channels, patch_size, patch_size)
 
         # Find all encoding vectors
         self.encodings = self.enc(x) # (batch_size, grid_size, grid_size, pred_size)

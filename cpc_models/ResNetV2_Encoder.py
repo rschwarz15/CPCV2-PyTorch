@@ -88,12 +88,18 @@ class PreActBottleneck(nn.Module):
 
 
 class PreActResNet_Encoder(nn.Module):
-    def __init__(self, args, use_classifier, block, num_blocks, num_channels=[64, 128, 256], input_channels=1):
+    def __init__(self, args, use_classifier, block, num_blocks, num_channels=[64, 128, 256]):
         super(PreActResNet_Encoder, self).__init__()
         self.args = args
         self.in_planes = 64
         self.dataset = args.dataset
         self.use_classifier = use_classifier
+
+        # Greyscale or Coloured
+        if args.grey:
+            input_channels = 1
+        else:
+            input_channels = 3
 
         # If there isn't normalisation then the conv layers need biasing
         bias = True if (args.norm == "none") else False

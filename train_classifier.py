@@ -62,11 +62,11 @@ def train():
             if test_acc > best_acc:
                 best_acc = test_acc
                 best_epoch = epoch
-            print(f"Epoch: {epoch}/{args.epochs} (lr={scheduler.get_last_lr()[0]})\n"
+            print(f"Epoch: {epoch}/{args.epochs} (lr={round(scheduler.get_last_lr()[0],10)})\n"
                   f"Train: {loss:.4f}, {acc*100:.2f}%\n"
                   f"Test:  {test_loss:.4f}, {test_acc*100:.2f}%")
         else:
-            print(f"Epoch: {epoch}/{args.epochs} (lr={scheduler.get_last_lr()[0]})\n"
+            print(f"Epoch: {epoch}/{args.epochs} (lr={round(scheduler.get_last_lr()[0],10)})\n"
                   f"Train: {loss:.4f}, {acc*100:.2f}%")
 
         scheduler.step()
@@ -104,18 +104,19 @@ if __name__ == "__main__":
 
         # Load the CPC trained encoder (with classifier layer activated)
         if args.encoder[:6] == "resnet":
-            net = PreActResNetN_Encoder(args, use_classifier=True).to(args.device)
+            net = PreActResNetN_Encoder(args, use_classifier=True)
         elif args.encoder[:10] == "wideresnet":
             parameters = args.encoder.split("-")
             depth = int(parameters[1])
             widen_factor = int(parameters[2])
             net = Wide_ResNet_Encoder(args, depth, widen_factor, use_classifier=True)
-        elif args.encoder == "mobielnetV2":
-            net = MobileNetV2_Encoder(args, use_classifier=True).to(args.device)
+        else: # args.encoder == "mobilenetV2"
+            net = MobileNetV2_Encoder(args, use_classifier=True)
 
         encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
-        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_crop{args.crop}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{args.model_num}.pt"))
-        net = net.to(args.device)
+        colour = "_colour" if (not args.grey) else ""
+        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_crop{args.crop}{colour}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.cpc_patch_aug}_{args.model_num}.pt"))
+        net.to(args.device)
 
         # Freeze encoder layers
         for name, param in net.named_parameters():
@@ -148,7 +149,6 @@ if __name__ == "__main__":
         milestones = args.sched_milestones.split(',')
         for i in range(0, len(milestones)): 
             milestones[i] = int(milestones[i]) 
-        print(milestones)
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=args.lr_gamma)
 
     loss_function = nn.CrossEntropyLoss()

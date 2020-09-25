@@ -47,11 +47,17 @@ class wide_basic(nn.Module):
 
 
 class Wide_ResNet_Encoder(nn.Module):
-    def __init__(self, args, depth, widen_factor, use_classifier, dropout_rate=0, input_channels=1):
+    def __init__(self, args, depth, widen_factor, use_classifier, dropout_rate=0):
         super(Wide_ResNet_Encoder, self).__init__()
         self.args = args
         self.in_planes = 16
         self.use_classifier = use_classifier
+
+        # Greyscale or Coloured
+        if args.grey:
+            input_channels = 1
+        else:
+            input_channels = 3
 
         assert ((depth-4) % 6 == 0), 'Wide-resnet depth should be 6n+4'
         n = (depth-4)/6

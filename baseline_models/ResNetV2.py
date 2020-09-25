@@ -64,10 +64,16 @@ class PreActBottleneck(nn.Module):
 
 
 class PreActResNet(nn.Module):
-    def __init__(self, args, block, num_blocks, num_channels=[64, 128, 256, 512], input_channels=1):
+    def __init__(self, args, block, num_blocks, num_channels=[64, 128, 256, 512]):
         super(PreActResNet, self).__init__()
         self.in_planes = 64
         self.dataset = args.dataset
+
+        # Greyscale or Coloured
+        if args.grey:
+            input_channels = 1
+        else:
+            input_channels = 3
 
         if self.dataset == "stl10":
             # From https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py

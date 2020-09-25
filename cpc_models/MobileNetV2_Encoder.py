@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 # This is a modified version of torch.models.mobilenet_v2
 # All batch normalisation is removed
-# Input channels is 1 instead of 3
 # Option for using classifier
 
 def _make_divisible(v, divisor, min_value=None):
@@ -91,6 +90,12 @@ class MobileNetV2_Encoder(nn.Module):
         self.use_classifier=use_classifier
         self.patch_size = args.patch_size
 
+        # Greyscale or Coloured
+        if args.grey:
+            input_channels = 1
+        else:
+            input_channels = 3
+
         if block is None:
             block = InvertedResidual
         input_channel = 32
@@ -116,7 +121,7 @@ class MobileNetV2_Encoder(nn.Module):
         # building first layer
         input_channel = _make_divisible(input_channel * width_mult, round_nearest)
         self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
-        features = [ConvReLU(1, input_channel, stride=2)]
+        features = [ConvReLU(input_channels, input_channel, stride=2)]
         # building inverted residual blocks
         for t, c, n, s in inverted_residual_setting:
             output_channel = _make_divisible(c * width_mult, round_nearest)
