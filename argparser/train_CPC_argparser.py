@@ -25,7 +25,7 @@ def argparser():
     
     parser.add_argument('--download_dataset', action='store_true',                        help="Download the chosen dataset")
     parser.add_argument('--patch_aug',        action='store_true',                        help="Apply path-based data augmentation as in CPC V2")
-    parser.add_argument('--grey',             action='store_true',                        help="Convert to greyscale")
+    parser.add_argument('--gray',             action='store_true',                        help="Convert to grayscale")
 
     args = parser.parse_args()
 

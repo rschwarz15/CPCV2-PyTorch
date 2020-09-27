@@ -52,9 +52,10 @@ class Wide_ResNet_Encoder(nn.Module):
         self.args = args
         self.in_planes = 16
         self.use_classifier = use_classifier
+        self.pred_size = 64 * widen_factor
 
-        # Greyscale or Coloured
-        if args.grey:
+        # grayscale or Coloured
+        if args.gray:
             input_channels = 1
         else:
             input_channels = 3

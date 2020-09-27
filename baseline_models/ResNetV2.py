@@ -69,8 +69,8 @@ class PreActResNet(nn.Module):
         self.in_planes = 64
         self.dataset = args.dataset
 
-        # Greyscale or Coloured
-        if args.grey:
+        # grayscale or Coloured
+        if args.gray:
             input_channels = 1
         else:
             input_channels = 3

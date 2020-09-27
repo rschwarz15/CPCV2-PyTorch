@@ -7,10 +7,11 @@ from torch.nn.modules.loss import _WeightedLoss
 import torch.nn.functional as F
 
 class InfoNCE_Loss(nn.Module):
-    def __init__(self, args, in_channels):
+    def __init__(self, pred_steps, neg_samples, in_channels):
         super().__init__()
-        self.neg_samples = args.neg_samples
-        self.pred_steps = args.pred_steps
+        
+        self.pred_steps = pred_steps
+        self.neg_samples = neg_samples
 
         self.W_k = nn.ModuleList(
             nn.Conv2d(in_channels, in_channels, 1, bias=False)

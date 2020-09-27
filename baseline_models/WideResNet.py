@@ -32,8 +32,8 @@ class Wide_ResNet(nn.Module):
         super(Wide_ResNet, self).__init__()
         self.in_planes = 16
 
-        # Greyscale or Coloured
-        if args.grey:
+        # grayscale or Coloured
+        if args.gray:
             input_channels = 1
         else:
             input_channels = 3

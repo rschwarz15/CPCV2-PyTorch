@@ -10,7 +10,6 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 
 
 def norm2d(planes, norm):
@@ -94,9 +93,10 @@ class PreActResNet_Encoder(nn.Module):
         self.in_planes = 64
         self.dataset = args.dataset
         self.use_classifier = use_classifier
+        self.pred_size = 256 if block == PreActBlock else 1024
 
-        # Greyscale or Coloured
-        if args.grey:
+        # grayscale or Coloured
+        if args.gray:
             input_channels = 1
         else:
             input_channels = 3

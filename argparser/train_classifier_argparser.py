@@ -30,8 +30,8 @@ def argparser():
     parser.add_argument('--download_dataset', action='store_true',                        help="Download the chosen dataset")
     parser.add_argument('--patch_aug',        action='store_true',                        help="Apply patch-based data augmentation as in CPC V2")
     parser.add_argument('--cpc_patch_aug',    action='store_true',                        help="Whether unsupervised training used patch-based data augmentation as in CPC V2")
-    parser.add_argument('--grey',             action='store_true',                        help="Convert to greyscale")
-
+    parser.add_argument('--gray',             action='store_true',                        help="Convert to grayscale")
+    parser.add_argument('--sgd',              action='store_true',                        help="Use SGD instead of ADAM")
     args = parser.parse_args()
 
     # Add to args given the input choices

@@ -46,15 +46,15 @@ class patchify(object):
 
 class patchify_augment(patchify):
     """ 
-    Extends Patchify for greyscale images
+    Extends Patchify for grayscale images
     Converts a tensor (C x H x W) to a grid of tensors (grid_size x grid_size x C x patch_size x patch_size)
     Then for each patch applies 2 of the AutoAugment transformations
     Returns a tensor of (grid_size x grid_size x C x patch_size x patch_size)
     """
 
-    def __init__(self, grey, grid_size):
+    def __init__(self, gray, grid_size):
         super().__init__(grid_size=grid_size)
-        self.grey = grey
+        self.gray = gray
         
         # As labeled certain transformations have been written so that they
         # are applied on tensors, this alleviates the need to convert to PIL.Image
@@ -75,7 +75,7 @@ class patchify_augment(patchify):
             self.Cutout # Tensor
         ]
 
-        if not grey:
+        if not gray:
             self.transformations.append(self.Color)
 
     def __call__(self, x):
@@ -89,7 +89,7 @@ class patchify_augment(patchify):
             for patch_col in range(self.grid_size):
                 patch = x[patch_row][patch_col]
 
-                # Randomly choose two of the 16 (15 if greyscale) transformations from AutoAugment
+                # Randomly choose two of the 16 (15 if grayscale) transformations from AutoAugment
                 for _ in range(2):
                     rand = random.randint(0, len(self.transformations)) 
 
@@ -118,17 +118,12 @@ class patchify_augment(patchify):
                         # Convert PIL back to tensor
                         x[patch_row][patch_col] = transforms.ToTensor()(patch_PIL)
 
-                # Randomly apply elastic deformation and shearing with p = 0.2
-                ### Currently not doing - it is availabe in Albumentations
-
         return x
 
     def __repr__(self):
-        return self.__class__.__name__ + f'(grid_size={self.grid_size} - colour={not self.grey})'
+        return self.__class__.__name__ + f'(grid_size={self.grid_size}, colour={not self.gray})'
 
-    # The following transformation functions are either on:
-    # https://github.com/tensorflow/models/blob/master/research/autoaugment/augmentation_transforms.py
-    # or written to be performed directly on Tensors
+    # The following transformations either use PIL or are done directly on Tensors
     def ShearX(self, pil_img):
         level = random.random() * 0.6 - 0.3  # [-0.3,0.3] As in AutoAugment
         return pil_img.transform(self.patch_dim, Image.AFFINE, (1, level, 0, 0, 1, 0))

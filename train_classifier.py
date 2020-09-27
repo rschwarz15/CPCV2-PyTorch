@@ -51,9 +51,16 @@ def train():
     best_acc = 0
     best_epoch = 0
     for epoch in range(1, args.epochs+1):
+        epoch_loss = 0
+        epoch_acc = 0
 
         for batch_img, batch_lbl in tqdm(train_loader, dynamic_ncols=True):
             loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device), train=True)
+            epoch_loss += loss
+            epoch_acc += acc
+
+        epoch_loss /= len(train_loader)
+        epoch_acc /= len(train_loader)
 
         # at epoch intervals test the performance
         if epoch % args.test_interval == 0:
@@ -63,11 +70,11 @@ def train():
                 best_acc = test_acc
                 best_epoch = epoch
             print(f"Epoch: {epoch}/{args.epochs} (lr={round(scheduler.get_last_lr()[0],10)})\n"
-                  f"Train: {loss:.4f}, {acc*100:.2f}%\n"
+                  f"Train: {epoch_loss:.4f}, {epoch_acc*100:.2f}%\n"
                   f"Test:  {test_loss:.4f}, {test_acc*100:.2f}%")
         else:
             print(f"Epoch: {epoch}/{args.epochs} (lr={round(scheduler.get_last_lr()[0],10)})\n"
-                  f"Train: {loss:.4f}, {acc*100:.2f}%")
+                  f"Train: {epoch_loss:.4f}, {epoch_acc*100:.2f}%")
 
         scheduler.step()
 
@@ -114,7 +121,7 @@ if __name__ == "__main__":
             net = MobileNetV2_Encoder(args, use_classifier=True)
 
         encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
-        colour = "_colour" if (not args.grey) else ""
+        colour = "_colour" if (not args.gray) else ""
         net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_crop{args.crop}{colour}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.cpc_patch_aug}_{args.model_num}.pt"))
         net.to(args.device)
 
@@ -123,8 +130,10 @@ if __name__ == "__main__":
             if "classifier" not in name:
                 param.requires_grad = False
 
-        #optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr, momentum=0.9)
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr)
+        if args.sgd:
+            optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr, momentum=0.9)
+        else:
+            optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.lr)
 
     else:
         print("Training Fully Supervised")

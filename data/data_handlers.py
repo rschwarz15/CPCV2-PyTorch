@@ -53,8 +53,8 @@ def get_transforms(args, eval, aug):
     if not eval:
         trans.append(transforms.RandomHorizontalFlip())
 
-    # Greyscale, Convert to Tensor and Normalise
-    if args.grey:
+    # grayscale, Convert to Tensor and Normalise
+    if args.gray:
         trans.append(transforms.Grayscale())
         trans.append(transforms.ToTensor())
         if not args.patch_aug:
@@ -67,9 +67,8 @@ def get_transforms(args, eval, aug):
     # If training CPC then patchify, if required also augment
     if not args.fully_supervised:
         if not eval and args.patch_aug:
-            if args.grey:
-                trans.append(patchify_augment(grey=args.grey, grid_size=args.grid_size))
-                # -- May add other steps of CPCV2 for colour --
+            trans.append(patchify_augment(gray=args.gray, grid_size=args.grid_size))
+            # -- May add other steps of CPCV2 for colour --
         else:
             trans.append(patchify(grid_size=args.grid_size))
 
@@ -238,14 +237,14 @@ def calculate_normalisation(dataset):
         train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
         train_std = [np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
-        # Greyscale
+        # grayscale
         train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
         train_set = torchvision.datasets.STL10(root=data_path, split="train+unlabeled", download=True, transform=train_transform)
 
         c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
 
-        grey_train_mean = [np.mean(c, axis=(0, 1,))]
-        grey_train_std = [np.std(c, axis=(0, 1))]
+        gray_train_mean = [np.mean(c, axis=(0, 1,))]
+        gray_train_std = [np.std(c, axis=(0, 1))]
 
         # [0.44087532, 0.42790526, 0.3867924] [0.26826888, 0.2610458, 0.2686684]
         # [0.42709708] [0.257203]
@@ -265,14 +264,14 @@ def calculate_normalisation(dataset):
         train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
         train_std = [np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
-        # Greyscale
+        # grayscale
         train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
         train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=train_transform)
 
         c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
 
-        grey_train_mean = [np.mean(c, axis=(0, 1,))]
-        grey_train_std = [np.std(c, axis=(0, 1))]
+        gray_train_mean = [np.mean(c, axis=(0, 1,))]
+        gray_train_std = [np.std(c, axis=(0, 1))]
 
         # [0.49139968, 0.48215827, 0.44653124] [0.24703233, 0.24348505, 0.26158768]
         # [0.4808616] [0.23919088]
@@ -291,20 +290,20 @@ def calculate_normalisation(dataset):
         train_mean = [np.mean(c1, axis=(0, 1,)), np.mean(c2, axis=(0, 1,)), np.mean(c3, axis=(0, 1,))]
         train_std = [np.std(c1, axis=(0, 1)), np.std(c2, axis=(0, 1)), np.std(c3, axis=(0, 1))]
 
-        # Greyscale
+        # grayscale
         train_transform = transforms.Compose([transforms.Grayscale(), transforms.ToTensor()])
         train_set = torchvision.datasets.CIFAR100(root=data_path, train=True, download=True, transform=train_transform)
 
         c = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
 
-        grey_train_mean = [np.mean(c, axis=(0, 1,))]
-        grey_train_std = [np.std(c, axis=(0, 1))]
+        gray_train_mean = [np.mean(c, axis=(0, 1,))]
+        gray_train_std = [np.std(c, axis=(0, 1))]
 
         # [0.5070746, 0.48654896, 0.44091788] [0.26733422, 0.25643846, 0.27615058]
         # [0.48748648] [0.25063065]
 
     print(train_mean, train_std)
-    print(grey_train_mean, grey_train_std)
+    print(gray_train_mean, gray_train_std)
 
 
 if __name__ == "__main__":

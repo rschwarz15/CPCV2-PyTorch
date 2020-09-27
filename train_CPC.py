@@ -1,4 +1,7 @@
 from cpc_models.CPC import CPC
+from cpc_models.MobileNetV2_Encoder import MobileNetV2_Encoder    
+from cpc_models.ResNetV2_Encoder import PreActResNetN_Encoder
+from cpc_models.WideResNet_Encoder import Wide_ResNet_Encoder
 from data.data_handlers import *
 from argparser.train_CPC_argparser import argparser
 
@@ -96,10 +99,23 @@ if __name__ == "__main__":
 
     cpc_path = os.path.join("TrainedModels", args.dataset, "trained_cpc")
     encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
-    colour = "_colour" if (not args.grey) else ""
+    colour = "_colour" if (not args.gray) else ""
+
+    # Define Encoder Network
+    if args.encoder in ("resnet18", "resnet34"):
+        enc = PreActResNetN_Encoder(args, use_classifier=False)
+    elif args.encoder in ("resnet50", "resent101", "resnet152"):
+        enc = PreActResNetN_Encoder(args, use_classifier=False)
+    elif args.encoder[:10] == "wideresnet":
+        parameters = args.encoder.split("-")
+        depth = int(parameters[1])
+        widen_factor = int(parameters[2])
+        enc = Wide_ResNet_Encoder(args, depth, widen_factor, use_classifier=False)
+    elif args.encoder == "mobilenetV2":
+        enc = MobileNetV2_Encoder(args)
 
     # Define Network
-    net = CPC(args)
+    net = CPC(enc, args.pred_directions, args.pred_steps, args.neg_samples)
     if args.trained_epochs:
         net.load_state_dict(torch.load(
             f"{cpc_path}_{args.encoder}_crop{args.crop}{colour}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{args.trained_epochs}{args.model_name_ext}.pt"))
@@ -122,7 +138,7 @@ if __name__ == "__main__":
         unsupervised_loader, _, _ = get_cifar100_dataloader(args)
 
     # Train the network
-    print(f"Dataset: {args.dataset}, Encoder: {args.encoder}, Colour: {not args.grey}, Crop: {args.crop}, Grid Size: {args.grid_size}, Norm: {args.norm}, Pred Directions: {args.pred_directions}, Patch Aug: {args.patch_aug}")
+    print(f"Dataset: {args.dataset}, Encoder: {args.encoder}, Colour: {not args.gray}, Crop: {args.crop}, Grid Size: {args.grid_size}, Norm: {args.norm}, Pred Directions: {args.pred_directions}, Patch Aug: {args.patch_aug}")
     try:
         train()
     except KeyboardInterrupt:
