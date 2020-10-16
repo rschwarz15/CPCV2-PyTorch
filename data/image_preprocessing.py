@@ -82,15 +82,16 @@ class patchify_augment(patchify):
         # Patchify using parent class
         x = super().__call__(x) 
         
+        self.number_of_transforms = 2
         self.patch_dim = (self.patch_size, self.patch_size)
-
+        
         # For each path apply augmentation as in CPC V2
         for patch_row in range(self.grid_size):
             for patch_col in range(self.grid_size):
                 patch = x[patch_row][patch_col]
 
                 # Randomly choose two of the 16 (15 if grayscale) transformations from AutoAugment
-                for _ in range(2):
+                for _ in range(self.number_of_transforms):
                     rand = random.randint(0, len(self.transformations)) 
 
                     # Tensor based functions - TranslateX/Y, Invert, Solarize, Posterize, Cutout
@@ -123,7 +124,7 @@ class patchify_augment(patchify):
     def __repr__(self):
         return self.__class__.__name__ + f'(grid_size={self.grid_size}, colour={not self.gray})'
 
-    # The following transformations either use PIL or are done directly on Tensors
+    # The following transformations either use PIL or are performed directly on Tensors
     def ShearX(self, pil_img):
         level = random.random() * 0.6 - 0.3  # [-0.3,0.3] As in AutoAugment
         return pil_img.transform(self.patch_dim, Image.AFFINE, (1, level, 0, 0, 1, 0))
@@ -135,9 +136,9 @@ class patchify_augment(patchify):
 
 
     def TranslateX(self, patch):
-        # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2 of 331x331 image
-        # 1/4 of patch - 1/2 seems excessive
-        pixels = random.randint(int(-self.patch_size/4), int(self.patch_size/4))
+        # Autoaugment does [-150,150] pixels which is eqiuvalent to 45% of 331x331 image
+        # 1/3 of patch - 45% seems excessive
+        pixels = random.randint(int(-self.patch_size/3), int(self.patch_size/3))
         channels = patch.shape[0]
 
         # (C, H, W) - columns are dim 2
@@ -152,8 +153,8 @@ class patchify_augment(patchify):
 
     def TranslateY(self, patch):
         # Autoaugment does [-150,150] pixels which is eqiuvalent to ~1/2 of 331x331 image
-        # 1/4 of patch - 1/2 seems excessive
-        pixels = random.randint(int(-self.patch_size/4), int(self.patch_size/4))
+        # 1/3 of patch - 45% seems excessive
+        pixels = random.randint(int(-self.patch_size/3), int(self.patch_size/3))
         channels = patch.shape[0]
 
         # (C, H, W) - rows are dim 1
@@ -186,7 +187,6 @@ class patchify_augment(patchify):
 
     def Posterize(self, patch):
         bits = random.randint(4, 8)  # [4,8] as in AutoSegment
-        bits = 4
         patch = (patch * 255) // (2 ** (8 - bits)) * (2 ** (8-bits)) / 255
         return patch
         #return PIO.posterize(pil_img, bits)
@@ -216,17 +216,16 @@ class patchify_augment(patchify):
         # Autoaugment does [0, 60] pixels which is eqiuvalent to ~1/5th of 331x331 image
         # 1/3 of patch otherwise they are too small
         size = random.randint(1, int(self.patch_size/3))
-        channels = patch.shape[0]
 
         # generate top_left crop coordinate
         x_coord = random.randint(0, self.patch_size - size)
         y_coord = random.randint(0, self.patch_size - size)
 
-        for i in range(channels):
-            patch[i][x_coord:x_coord+size, y_coord:y_coord+size] = 0.5
+        patch[:, x_coord:x_coord+size, y_coord:y_coord+size] = 0.5
 
         return patch
 
 
     def SamplePairing(self, patch, other_patch):
-        return torch.true_divide(patch + other_patch, 2)
+        level = random.random() * 0.4 # [0, 0.4] As in AutoAugment
+        return patch + level * other_patch

@@ -1,4 +1,3 @@
-from cpc_models.PixelCNN import PixelCNN
 from cpc_models.InfoNCE_Loss import InfoNCE_Loss
 
 import torch
@@ -6,21 +5,21 @@ import torch.nn as nn
 
 class CPC(nn.Module):
 
-    def __init__(self, encoder, pred_directions, pred_steps, neg_samples):
+    def __init__(self, encoderNet, arNet, pred_directions, pred_steps, neg_samples):
         super().__init__()
         
         self.pred_directions = pred_directions
         assert 1 <= pred_directions <= 4
 
         # Define Encoder Network
-        self.enc = encoder
+        self.enc = encoderNet
 
         # Define Autoregressive Network
-        self.ar = PixelCNN(in_channels=encoder.pred_size)
+        self.ar = arNet
 
         # Define Predictive + Loss Networks
         self.pred_loss = nn.ModuleList(
-            InfoNCE_Loss(pred_steps=pred_steps, neg_samples=neg_samples, in_channels=encoder.pred_size)
+            InfoNCE_Loss(pred_steps=pred_steps, neg_samples=neg_samples, in_channels=encoderNet.pred_size)
             for _ in range(self.pred_directions)
         )
 
@@ -36,7 +35,7 @@ class CPC(nn.Module):
         # For each direction find context vectors and contrastive loss
         loss = 0
         for i in range(self.pred_directions):
-            # rotate encoding 90 degrees clockwise for subsequent directtions
+            # rotate encoding 90 degrees clockwise
             if i > 0:
                 self.encodings = self.encodings.transpose(2,3).flip(3)
 

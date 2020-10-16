@@ -2,6 +2,7 @@ from cpc_models.CPC import CPC
 from cpc_models.MobileNetV2_Encoder import MobileNetV2_Encoder    
 from cpc_models.ResNetV2_Encoder import PreActResNetN_Encoder
 from cpc_models.WideResNet_Encoder import Wide_ResNet_Encoder
+from cpc_models.PixelCNN_GIM import PixelCNN
 from data.data_handlers import *
 from argparser.train_CPC_argparser import argparser
 
@@ -114,8 +115,11 @@ if __name__ == "__main__":
     elif args.encoder == "mobilenetV2":
         enc = MobileNetV2_Encoder(args)
 
-    # Define Network
-    net = CPC(enc, args.pred_directions, args.pred_steps, args.neg_samples)
+    # Define Autrogressive Network
+    ar = PixelCNN(in_channels=enc.pred_size)
+
+    # Define CPC Network
+    net = CPC(enc, ar, args.pred_directions, args.pred_steps, args.neg_samples)
     if args.trained_epochs:
         net.load_state_dict(torch.load(
             f"{cpc_path}_{args.encoder}_crop{args.crop}{colour}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.patch_aug}_{args.trained_epochs}{args.model_name_ext}.pt"))

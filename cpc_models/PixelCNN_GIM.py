@@ -18,7 +18,6 @@ def same_padding(kernel_size):
     else:
         return (kernel_size[0] // 2, kernel_size[1] // 2)
 
-# PyTorch port of
 class MaskedConvolution2D(nn.Conv2d):
     def __init__(self, in_channels, out_channels, kernel_size,
             *args, mask='B', vertical=False, mask_mode="noblind", **kwargs):
@@ -201,6 +200,7 @@ class PixelCNNGatedLayer(nn.Module):
             if h_skip is not None:
                 h_skip = F.relu(h_skip)
         return v_out, h_out, h_skip
+
 
 class PixelCNNGatedStack(nn.Module):
     def __init__(self, *args):

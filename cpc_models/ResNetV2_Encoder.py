@@ -134,10 +134,10 @@ class PreActResNet_Encoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        # Input x = (batch_size, grid_size, grid_size, 1, patch_size, patch_size)
+        # Input x = (batch_size, grid_size, grid_size, channels, patch_size, patch_size)
         grid_size = self.args.grid_size
 
-        # Flatten to (batch_size * grid_size * grid_size, 1, patch_size, patch_size)
+        # Flatten to (batch_size * grid_size * grid_size, channels, patch_size, patch_size)
         x = x.view(
             x.shape[0] * x.shape[1] * x.shape[2], x.shape[3], x.shape[4], x.shape[5]
         )

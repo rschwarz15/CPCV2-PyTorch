@@ -1,4 +1,4 @@
-# Modified From:
+# From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/InfoNCE_Loss.py
 
 import torch

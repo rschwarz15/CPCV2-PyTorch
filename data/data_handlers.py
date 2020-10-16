@@ -68,7 +68,10 @@ def get_transforms(args, eval, aug):
     if not args.fully_supervised:
         if not eval and args.patch_aug:
             trans.append(patchify_augment(gray=args.gray, grid_size=args.grid_size))
+
             # -- May add other steps of CPCV2 for colour --
+            if not args.gray:
+                trans.append(transforms.RandomGrayscale(p=0.25))
         else:
             trans.append(patchify(grid_size=args.grid_size))
 
@@ -227,8 +230,7 @@ def calculate_normalisation(dataset):
 
         # RGB
         train_transform = transforms.Compose([transforms.ToTensor()])
-        train_set = torchvision.datasets.STL10(
-            root=data_path, split="train+unlabeled", download=True, transform=train_transform)
+        train_set = torchvision.datasets.STL10(root=data_path, split="train+unlabeled", download=True, transform=train_transform)
 
         c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])  # concatenate each channel
         c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
@@ -254,8 +256,7 @@ def calculate_normalisation(dataset):
 
         # RGB
         train_transform = transforms.Compose([transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR10(
-            root=data_path, train=True, download=True, transform=train_transform)
+        train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=train_transform)
 
         c1 = np.concatenate([np.asarray(train_set[i][0][0]) for i in range(len(train_set))])
         c2 = np.concatenate([np.asarray(train_set[i][0][1]) for i in range(len(train_set))])
