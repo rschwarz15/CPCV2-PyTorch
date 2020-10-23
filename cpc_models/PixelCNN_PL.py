@@ -1,5 +1,6 @@
 # From:
 # https://github.com/PyTorchLightning/pytorch-lightning-bolts/blob/02134c6f4de6d1c5beb515044a62a7a5378d16eb/pl_bolts/models/vision/pixel_cnn.py
+# https://github.com/PyTorchLightning/pytorch-lightning/blob/master/LICENSE
 import torch.nn as nn
 import torch.nn.functional as F
 

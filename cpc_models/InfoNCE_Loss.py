@@ -1,5 +1,6 @@
 # From:
 # https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/InfoNCE_Loss.py
+# https://github.com/loeweX/Greedy_InfoMax/blob/master/LICENSE
 
 import torch
 import torch.nn as nn
