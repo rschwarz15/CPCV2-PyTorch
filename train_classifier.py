@@ -15,7 +15,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import os
-import numpy as np
 from tqdm import tqdm
 
 

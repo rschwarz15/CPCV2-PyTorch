@@ -13,7 +13,6 @@ import torch.optim as optim
 
 import os
 import time
-import numpy as np
 from tqdm import tqdm
 
 
