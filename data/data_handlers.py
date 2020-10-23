@@ -53,27 +53,31 @@ def get_transforms(args, eval, aug):
     if not eval:
         trans.append(transforms.RandomHorizontalFlip())
 
-    # grayscale, Convert to Tensor and Normalise
+    # Grayscale, Convert to Tensor and Normalize
     if args.gray:
         trans.append(transforms.Grayscale())
         trans.append(transforms.ToTensor())
-        if not args.patch_aug:
+        if eval or not args.patch_aug:
             trans.append(transforms.Normalize(mean=aug["bw_mean"], std=aug["bw_std"]))
     else:
+        #trans.append(transforms.RandomGrayscale(p=0.25)) # As in CPCV2
         trans.append(transforms.ToTensor())
-        if not args.patch_aug:
+        if eval or not args.patch_aug:
             trans.append(transforms.Normalize(mean=aug["mean"], std=aug["std"]))
 
     # If training CPC then patchify, if required also augment
     if not args.fully_supervised:
         if not eval and args.patch_aug:
-            trans.append(patchify_augment(gray=args.gray, grid_size=args.grid_size))
-
-            # -- May add other steps of CPCV2 for colour --
-            if not args.gray:
-                trans.append(transforms.RandomGrayscale(p=0.25))
+            trans.append(PatchifyAugment(gray=args.gray, grid_size=args.grid_size))
         else:
-            trans.append(patchify(grid_size=args.grid_size))
+            trans.append(Patchify(grid_size=args.grid_size))
+
+    # If patch_aug then normalization goes last
+    if not eval and args.patch_aug:
+        if args.gray:
+            trans.append(PatchAugNormalize(mean=aug["bw_mean"], std=aug["bw_std"]))
+        else:
+            trans.append(PatchAugNormalize(mean=aug["mean"], std=aug["std"]))
 
     trans = transforms.Compose(trans)
 
@@ -133,7 +137,6 @@ def get_stl10_dataloader(args, labeled=False, validate=False):
 
 
 def get_cifar_dataloader(args, cifar_classes):
-
     if cifar_classes == 10:
         data_path = os.path.join("data", "cifar10")
 
@@ -151,7 +154,7 @@ def get_cifar_dataloader(args, cifar_classes):
             data_path, train=False, transform=transform_valid, download=args.download_dataset
         )
 
-    if cifar_classes == 100:
+    elif cifar_classes == 100:
         data_path = os.path.join("data", "cifar100")
 
         # Define Transforms
@@ -167,6 +170,9 @@ def get_cifar_dataloader(args, cifar_classes):
         test_dataset = torchvision.datasets.CIFAR100(
             data_path, train=False, transform=transform_valid, download=args.download_dataset
         )
+    
+    else:
+        raise Exception("Not a valid number of classes for CIFAR")
 
     # Get DataLoaders
     unsupervised_loader = torch.utils.data.DataLoader(
@@ -224,7 +230,7 @@ def create_validation_sampler(dataset_size):
     return train_sampler, valid_sampler
 
 
-def calculate_normalisation(dataset):
+def calculate_normalization(dataset):
     if dataset == "stl10":
         data_path = os.path.join("data", "stl10")
 
@@ -303,11 +309,14 @@ def calculate_normalisation(dataset):
         # [0.5070746, 0.48654896, 0.44091788] [0.26733422, 0.25643846, 0.27615058]
         # [0.48748648] [0.25063065]
 
+    else:
+        raise Exception("Not a valid dataset choice")
+
     print(train_mean, train_std)
     print(gray_train_mean, gray_train_std)
 
 
 if __name__ == "__main__":
-    calculate_normalisation("stl10")
-    calculate_normalisation("cifar10")
-    calculate_normalisation("cifar100")
+    calculate_normalization("stl10")
+    calculate_normalization("cifar10")
+    calculate_normalization("cifar100")

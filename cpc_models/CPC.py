@@ -19,7 +19,7 @@ class CPC(nn.Module):
 
         # Define Predictive + Loss Networks
         self.pred_loss = nn.ModuleList(
-            InfoNCE_Loss(pred_steps=pred_steps, neg_samples=neg_samples, in_channels=encoderNet.pred_size)
+            InfoNCE_Loss(pred_steps=pred_steps, neg_samples=neg_samples, in_channels=encoderNet.encoding_size)
             for _ in range(self.pred_directions)
         )
 
@@ -27,10 +27,10 @@ class CPC(nn.Module):
         # Input x = (batch_size, grid_size, grid_size, channels, patch_size, patch_size)
 
         # Find all encoding vectors
-        self.encodings = self.enc(x) # (batch_size, grid_size, grid_size, pred_size)
+        self.encodings = self.enc(x) # (batch_size, grid_size, grid_size, encoding_size)
 
-        # Permute encodings to (batch_size, pred_size, grid_size, grid_size) for ar network
-        self.encodings = self.encodings.permute(0,3,1,2).contiguous() # (batch_size, pred_size, grid_size, grid_size)
+        # Permute encodings to (batch_size, encoding_size, grid_size, grid_size) for ar network
+        self.encodings = self.encodings.permute(0,3,1,2).contiguous() # (batch_size, encoding_size, grid_size, grid_size)
 
         # For each direction find context vectors and contrastive loss
         loss = 0
@@ -40,10 +40,11 @@ class CPC(nn.Module):
                 self.encodings = self.encodings.transpose(2,3).flip(3)
 
             # Find all context vectors
-            self.contexts = self.ar(self.encodings) # (batch_size, pred_size, grid_size, grid_size)
+            self.contexts = self.ar(self.encodings) # (batch_size, encoding_size, grid_size, grid_size)
 
             # Find contrastive loss
             loss += self.pred_loss[i](self.encodings, self.contexts)
+        loss /= self.pred_directions
 
         return loss
 

@@ -52,7 +52,7 @@ class Wide_ResNet_Encoder(nn.Module):
         self.args = args
         self.in_planes = 16
         self.use_classifier = use_classifier
-        self.pred_size = 64 * widen_factor
+        self.encoding_size = 64 * widen_factor
 
         # grayscale or Coloured
         if args.gray:
@@ -103,14 +103,14 @@ class Wide_ResNet_Encoder(nn.Module):
         z = self.layer3(z)
         z = F.relu(self.norm1(z))
         z = self.avgpool(z)
-        z = z.reshape(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, pred_size) 
+        z = z.view(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, encoding_size) 
 
         # Use classifier if specified
         if self.use_classifier:
             # Reshape z so that each image is seperate
             z = z.view(z.shape[0], grid_size * grid_size, z.shape[3])
 
-            # mean for each image, (batch_size, pred_size)
+            # mean for each image, (batch_size, encoding_size)
             z = torch.mean(z, dim=1)
             z = self.classifier(z)
 

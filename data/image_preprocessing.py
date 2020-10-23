@@ -6,7 +6,7 @@ import PIL.ImageEnhance as PIE
 import random
 
 
-class patchify(object):     
+class Patchify(object):     
     """
     Converts a tensor (C x H x W) to a grid of tensors (grid_size x grid_size x C x patch_size x patch_size)
     """
@@ -44,7 +44,7 @@ class patchify(object):
         return self.__class__.__name__ + '(grid_size={0})'.format(self.grid_size)
 
 
-class patchify_augment(patchify):
+class PatchifyAugment(Patchify):
     """ 
     Extends Patchify for grayscale images
     Converts a tensor (C x H x W) to a grid of tensors (grid_size x grid_size x C x patch_size x patch_size)
@@ -122,7 +122,7 @@ class patchify_augment(patchify):
         return x
 
     def __repr__(self):
-        return self.__class__.__name__ + f'(grid_size={self.grid_size}, colour={not self.gray})'
+        return self.__class__.__name__ + f'(grid_size={self.grid_size}, gray={self.gray})'
 
     # The following transformations either use PIL or are performed directly on Tensors
     def ShearX(self, pil_img):
@@ -229,3 +229,59 @@ class patchify_augment(patchify):
     def SamplePairing(self, patch, other_patch):
         level = random.random() * 0.4 # [0, 0.4] As in AutoAugment
         return patch + level * other_patch
+
+
+class PrePatchAugNormalizeReshape(object):
+    """
+    Converts a tensor (grid_size x grid_size x C x patch_size x patch_size) to (C x  grid_size**2 x patch_size**2)
+    """
+    def __call__(self, img):
+        # Move C to start
+        img = img.permute(2, 0, 1, 3, 4)
+
+        # Combine dimnensions
+        img = img.view(img.shape[0], img.shape[1] * img.shape[2], img.shape[3] * img.shape[4]) 
+
+        return img
+
+    def __repr__(self):
+        return self.__class__.__name__ + '()'
+
+
+class PostPatchAugNormalizeReshape(object):
+    """
+    Converts a tensor (C x  grid_size**2 x patch_size**2) to (grid_size x grid_size x C x patch_size x patch_size)
+    """
+    def __call__(self, img):
+        # Calcualte grid and patch size
+        grid_size = int(img.shape[1] ** 0.5)
+        patch_size = int(img.shape[2] ** 0.5)
+
+        # Get rid of grid_size**2 and patch_size**2
+        img = img.view(img.shape[0], grid_size, grid_size, patch_size, patch_size) 
+
+        # Move C to dim 2
+        img = img.permute(1, 2, 0, 3, 4)
+
+        return img
+
+    def __repr__(self):
+        return self.__class__.__name__ + '()'
+
+
+class PatchAugNormalize(object):
+    """
+    Combines Pre_PatchAug_Norm_Reshape, Normalize and Post_PatchAug_Norm_Reshape
+    """
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, img):
+        img = PrePatchAugNormalizeReshape()(img)
+        img = transforms.Normalize(mean=self.mean, std=self.std)(img)
+        img = PostPatchAugNormalizeReshape()(img)
+        return img
+
+    def __repr__(self):
+        return self.__class__.__name__ + f'(mean={self.mean}, std={self.std})'

@@ -103,9 +103,7 @@ if __name__ == "__main__":
     colour = "_colour" if (not args.gray) else ""
 
     # Define Encoder Network
-    if args.encoder in ("resnet18", "resnet34"):
-        enc = PreActResNetN_Encoder(args, use_classifier=False)
-    elif args.encoder in ("resnet50", "resent101", "resnet152"):
+    if args.encoder[:6] == "resnet":
         enc = PreActResNetN_Encoder(args, use_classifier=False)
     elif args.encoder[:10] == "wideresnet":
         parameters = args.encoder.split("-")
@@ -114,9 +112,11 @@ if __name__ == "__main__":
         enc = Wide_ResNet_Encoder(args, depth, widen_factor, use_classifier=False)
     elif args.encoder == "mobilenetV2":
         enc = MobileNetV2_Encoder(args)
-
+    else:
+        raise Exception("Not a valid encoder choice")
+    
     # Define Autrogressive Network
-    ar = PixelCNN(in_channels=enc.pred_size)
+    ar = PixelCNN(in_channels=enc.encoding_size)
 
     # Define CPC Network
     net = CPC(enc, ar, args.pred_directions, args.pred_steps, args.neg_samples)

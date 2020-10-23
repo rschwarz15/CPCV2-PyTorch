@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 # This is a modified version of torch.models.mobilenet_v2
 # All batch normalisation can be replaced by other normalisation methods
-# Pred_size variable must be defined
+# Encoding_size variable is defined
 # Option for using classifier
 
 def _make_divisible(v, divisor, min_value=None):
@@ -42,9 +42,12 @@ def norm2d(planes, norm):
 
 class ConvReLU(nn.Sequential):
     def __init__(self, args, in_planes, out_planes, kernel_size=3, stride=1, groups=1):
+        # If there isn't normalisation then the conv layers need biasing
+        bias = True if (args.norm == "none") else False
+
         padding = (kernel_size - 1) // 2
         super(ConvReLU, self).__init__(
-            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, groups=groups, bias=False),
+            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, groups=groups, bias=bias),
             norm2d(out_planes, args.norm),
             nn.ReLU6(inplace=True)
         )
@@ -53,6 +56,10 @@ class ConvReLU(nn.Sequential):
 class InvertedResidual(nn.Module):
     def __init__(self, args, inp, oup, stride, expand_ratio):
         super(InvertedResidual, self).__init__()
+
+        # If there isn't normalisation then the conv layers need biasing
+        bias = True if (args.norm == "none") else False
+
         self.stride = stride
         assert stride in [1, 2]
 
@@ -67,7 +74,7 @@ class InvertedResidual(nn.Module):
             # dw
             ConvReLU(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim),
             # pw-linear
-            nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+            nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=bias),
             norm2d(oup, args.norm),
         ])
         self.conv = nn.Sequential(*layers)
@@ -102,7 +109,6 @@ class MobileNetV2_Encoder(nn.Module):
         super(MobileNetV2_Encoder, self).__init__()
 
         self.use_classifier=use_classifier
-        self.pred_size = _make_divisible(1280 * max(1.0, width_mult), round_nearest)
 
         # grayscale or Coloured
         if args.gray:
@@ -114,6 +120,8 @@ class MobileNetV2_Encoder(nn.Module):
             block = InvertedResidual
         input_channel = 32
         last_channel = 1280
+            
+        self.encoding_size = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
 
         if inverted_residual_setting is None:
             inverted_residual_setting = [
@@ -183,14 +191,14 @@ class MobileNetV2_Encoder(nn.Module):
         z = self.features(x)
         # Cannot use "squeeze" as batch-size can be 1 => must use reshape with z.shape[0]
         z = nn.functional.adaptive_avg_pool2d(z, 1).reshape(z.shape[0], -1)
-        z = z.reshape(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, pred_size)
+        z = z.view(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, encoding_size)
 
         ### Use classifier if specified
         if self.use_classifier:
             # Reshape z so that each image is seperate
             z = z.view(z.shape[0], 49, z.shape[3])
 
-            z = torch.mean(z, dim=1) # mean for each image, (batch_size, pred_size)
+            z = torch.mean(z, dim=1) # mean for each image, (batch_size, encoding_size)
             z = self.classifier(z)
 
         return z

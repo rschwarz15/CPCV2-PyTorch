@@ -42,7 +42,11 @@ def argparser():
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Check encoder choice
-    if args.encoder not in ("resnet18", "resnet34", "resnet50", "resent101", "resnet152", "mobilenetV2") and args.encoder[:10] != "wideresnet":
+    if args.encoder not in ("resnet14", "resnet18", "resnet28", 
+                            "resnet34", "resnet41", "resnet50", 
+                            "resnet92", "resent101", "143", 
+                            "resnet152", "mobilenetV2"
+                            ) and args.encoder[:10] != "wideresnet":
         raise Exception("Invalid Encoder Input")
 
     # Check grid_size and pred_steps combination

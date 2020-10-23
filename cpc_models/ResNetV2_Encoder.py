@@ -87,13 +87,13 @@ class PreActBottleneck(nn.Module):
 
 
 class PreActResNet_Encoder(nn.Module):
-    def __init__(self, args, use_classifier, block, num_blocks, num_channels=[64, 128, 256]):
+    def __init__(self, args, use_classifier, block, num_blocks, num_channels):
         super(PreActResNet_Encoder, self).__init__()
         self.args = args
         self.in_planes = 64
         self.dataset = args.dataset
         self.use_classifier = use_classifier
-        self.pred_size = 256 if block == PreActBlock else 1024
+        self.encoding_size = num_channels[-1] * block.expansion
 
         # grayscale or Coloured
         if args.gray:
@@ -104,12 +104,10 @@ class PreActResNet_Encoder(nn.Module):
         # If there isn't normalisation then the conv layers need biasing
         bias = True if (args.norm == "none") else False
 
+        # Stem Net
         if self.dataset == "stl10":
-            # From https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
-            # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=5, stride=1, padding=2, bias=bias)
         elif self.dataset[:5] == "cifar":
-            # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=3, stride=1, padding=1, bias=bias)
         elif self.dataset == "imagenet":
             # Standard ResNet Structure for ImageNet
@@ -118,12 +116,17 @@ class PreActResNet_Encoder(nn.Module):
             self.relu = nn.ReLU(inplace=True)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(args, block, num_channels[0], num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(args, block, num_channels[1], num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(args, block, num_channels[2], num_blocks[2], stride=2)
+        # Conv layers
+        layers_array = []
+        stride = 1
+        for i in range(len(num_blocks)):
+            layers_array.append(self._make_layer(args, block, num_channels[i], num_blocks[i], stride=stride))
+            if stride == 1:
+                stride = 2
+        self.layers = nn.Sequential(*layers_array)
 
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.classifier = nn.Linear(256*block.expansion, args.num_classes)
+        self.classifier = nn.Linear(num_channels[-1]*block.expansion, args.num_classes)
 
     def _make_layer(self, args, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -148,43 +151,54 @@ class PreActResNet_Encoder(nn.Module):
             z = self.norm1(z)
             z = self.relu(z)
             z = self.maxpool(z)
-        z = self.layer1(z)
-        z = self.layer2(z)
-        z = self.layer3(z)
+        z = self.layers(z)
+
         z = self.avgpool(z)
-        z = z.reshape(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, pred_size)
+        z = z.view(-1, grid_size, grid_size, z.shape[1]) # (batch_size, grid_size, grid_size, encoding_size)
 
         # Use classifier if specified
         if self.use_classifier:
-            # Reshape z so that each image is seperate
-            z = z.view(z.shape[0], grid_size * grid_size, z.shape[3])
+            # Reshape z to (batch_size, grid_size * grid_size, encoding_size)
+            z = z.view(z.shape[0], grid_size * grid_size, self.encoding_size)
 
-            # mean for each image, (batch_size, pred_size)
+            # mean all patches for each image, z = (b, e)
             z = torch.mean(z, dim=1)
+            
             z = self.classifier(z)
 
         return z
 
 
 def PreActResNet18_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [2, 2, 2])
-
+    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [2, 2, 2, 2], [64, 128, 256, 512])
 
 def PreActResNet34_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [3, 4, 6])
-
+    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [3, 4, 6, 3], [64, 128, 256, 512])
 
 def PreActResNet50_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 6])
-
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 6, 3], [64, 128, 256, 512])
 
 def PreActResNet101_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 23])
-
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 23, 3], [64, 128, 256, 512])
 
 def PreActResNet152_Encoder(args, use_classifier):
-    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 8, 36])
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 8, 36, 3], [64, 128, 256, 512])
 
+# Modified ResNet with the fourth layer removed
+def PreActResNet14_Encoder(args, use_classifier):
+    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [2, 2, 2], [64, 128, 256])
+
+def PreActResNet28_Encoder(args, use_classifier):
+    return PreActResNet_Encoder(args, use_classifier, PreActBlock, [3, 4, 6], [64, 128, 256])
+
+def PreActResNet41_Encoder(args, use_classifier):
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 6], [64, 128, 256])
+
+def PreActResNet92_Encoder(args, use_classifier):
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 4, 23], [64, 128, 256])
+
+def PreActResNet143_Encoder(args, use_classifier):
+    return PreActResNet_Encoder(args, use_classifier, PreActBottleneck, [3, 8, 36], [64, 128, 256])
 
 def PreActResNetN_Encoder(args, use_classifier):
     if args.encoder == "resnet18":
@@ -197,3 +211,14 @@ def PreActResNetN_Encoder(args, use_classifier):
         return PreActResNet101_Encoder(args, use_classifier)
     elif args.encoder == "resnet152":
         return PreActResNet152_Encoder(args, use_classifier)
+
+    elif args.encoder == "resnet14":
+        return PreActResNet14_Encoder(args, use_classifier)
+    elif args.encoder == "resnet28":
+        return PreActResNet28_Encoder(args, use_classifier)
+    elif args.encoder == "resnet41":
+        return PreActResNet41_Encoder(args, use_classifier)
+    elif args.encoder == "resnet92":
+        return PreActResNet92_Encoder(args, use_classifier)
+    elif args.encoder == "resnet143":
+        return PreActResNet143_Encoder(args, use_classifier)

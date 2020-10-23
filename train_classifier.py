@@ -27,8 +27,7 @@ def fwd_pass(x, y, train=False):
         net.zero_grad()
         net.train()
         outputs = net(x)
-
-    if not train:
+    else:
         net.eval()
         with torch.no_grad():
             outputs = net(x)
@@ -62,6 +61,9 @@ def train():
         epoch_loss /= len(train_loader)
         epoch_acc /= len(train_loader)
 
+        # Get learning rate
+        lr = round(optimizer.param_groups[0]['lr'], 10)
+        
         # at epoch intervals test the performance
         if epoch % args.test_interval == 0:
             test_loss, test_acc = test()
@@ -69,14 +71,25 @@ def train():
             if test_acc > best_acc:
                 best_acc = test_acc
                 best_epoch = epoch
-            print(f"Epoch: {epoch}/{args.epochs} (lr={round(scheduler.get_last_lr()[0],10)})\n"
+                
+            print(f"Epoch: {epoch}/{args.epochs} (lr={lr})\n"
                   f"Train: {epoch_loss:.4f}, {epoch_acc*100:.2f}%\n"
                   f"Test:  {test_loss:.4f}, {test_acc*100:.2f}%")
         else:
-            print(f"Epoch: {epoch}/{args.epochs} (lr={round(scheduler.get_last_lr()[0],10)})\n"
+            print(f"Epoch: {epoch}/{args.epochs} (lr={lr})\n"
                   f"Train: {epoch_loss:.4f}, {epoch_acc*100:.2f}%")
-
-        scheduler.step()
+        
+        if args.sched_plateau:
+            scheduler.step(epoch_loss)
+            
+            # break training once learning rate is stepped for the third time
+            if lr == args.lr / 1e3:
+                test_loss, test_acc = test()
+                print(f"Test:  {test_loss:.4f}, {test_acc*100:.2f}%")
+                print("Training Finished Early on Plateau")
+                break
+        else:
+            scheduler.step()
 
     print(f"Best Accuracy: {best_acc*100:.2f} - epoch {best_epoch}")
 
@@ -86,7 +99,7 @@ def test():
     total_test_loss = 0
 
     for batch_img, batch_lbl in tqdm(test_loader, dynamic_ncols=True):
-        loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device))
+        loss, acc = fwd_pass(batch_img.to(args.device), batch_lbl.to(args.device), train=False)
         total_test_acc += acc
         total_test_loss += loss
 
@@ -120,10 +133,13 @@ if __name__ == "__main__":
         else: # args.encoder == "mobilenetV2"
             net = MobileNetV2_Encoder(args, use_classifier=True)
 
-        encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
         colour = "_colour" if (not args.gray) else ""
-        net.load_state_dict(torch.load(f"{encoder_path}_{args.encoder}_crop{args.crop}{colour}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.cpc_patch_aug}_{args.model_num}.pt"))
+        encoder_path = os.path.join("TrainedModels", args.dataset, "trained_encoder")
+        encoder_path = f"{encoder_path}_{args.encoder}_crop{args.crop}{colour}_grid{args.grid_size}_{args.norm}Norm_{args.pred_directions}dir_aug{args.cpc_patch_aug}_{args.model_num}.pt"
+        
+        net.load_state_dict(torch.load(encoder_path))
         net.to(args.device)
+        print(f"Loaded Model:\n{encoder_path}")
 
         # Freeze encoder layers
         for name, param in net.named_parameters():
@@ -148,11 +164,14 @@ if __name__ == "__main__":
             net = Wide_ResNet(args, depth, widen_factor).to(args.device)
         elif args.encoder == "mobilenetV2":
             net = MobileNetV2(num_classes=args.num_classes).to(args.device)
-
+        else:
+            raise Exception("Invalid choice of encoder")
         optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
     # define scheduler based on argument inputs
-    if len(args.sched_milestones) == 0:
+    if args.sched_plateau:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=args.lr_gamma)
+    elif len(args.sched_milestones) == 0:
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.sched_step_size, gamma=args.lr_gamma)
     else:
         milestones = args.sched_milestones.split(',')

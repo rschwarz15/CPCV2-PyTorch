@@ -64,23 +64,21 @@ class PreActBottleneck(nn.Module):
 
 
 class PreActResNet(nn.Module):
-    def __init__(self, args, block, num_blocks, num_channels=[64, 128, 256, 512]):
+    def __init__(self, args, block, num_blocks, num_channels):
         super(PreActResNet, self).__init__()
         self.in_planes = 64
         self.dataset = args.dataset
 
-        # grayscale or Coloured
+        # Grayscale or Coloured
         if args.gray:
             input_channels = 1
         else:
             input_channels = 3
 
+        # Stem Net
         if self.dataset == "stl10":
-            # From https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/Resnet_Encoder.py
-            # Testing showed 5x5 kernal to have better classification performance - need to retest for more epochs
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=5, stride=1, padding=2, bias=False)
         elif self.dataset[:5] == "cifar":
-            # From https://github.com/kuangliu/pytorch-cifar/blob/master/models/preact_resnet.py
             self.conv1 = nn.Conv2d(input_channels, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
         elif self.dataset == "imagenet": 
             # Standard ResNet Structure for ImageNet
@@ -88,14 +86,18 @@ class PreActResNet(nn.Module):
             self.bn1 = nn.BatchNorm2d(self.in_planes, args.norm)
             self.relu = nn.ReLU(inplace=True)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
- 
-        self.layer1 = self._make_layer(block, num_channels[0], num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, num_channels[1], num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, num_channels[2], num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, num_channels[3], num_blocks[3], stride=2)
 
+        # Conv Layers
+        layers_array = []
+        stride = 1
+        for i in range(len(num_blocks)):
+            layers_array.append(self._make_layer(block, num_channels[i], num_blocks[i], stride=stride))
+            if stride == 1:
+                stride = 2
+        self.layers = nn.Sequential(*layers_array)
+        
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.linear = nn.Linear(512*block.expansion, args.num_classes)
+        self.linear = nn.Linear(num_channels[-1]*block.expansion, args.num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -113,31 +115,43 @@ class PreActResNet(nn.Module):
             out = self.relu(out)
             out = self.maxpool(out)
 
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-
+        out = self.layers(out)
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
         out = self.linear(out)
         return out
 
-
+# Normal ResNet
 def PreActResNet18(args):
-    return PreActResNet(args, PreActBlock, [2,2,2,2])
+    return PreActResNet(args, PreActBlock, [2,2,2,2], [64, 128, 256, 512])
 
 def PreActResNet34(args):
-    return PreActResNet(args, PreActBlock, [3,4,6,3])
+    return PreActResNet(args, PreActBlock, [3,4,6,3], [64, 128, 256, 512])
 
 def PreActResNet50(args):
-    return PreActResNet(args, PreActBottleneck, [3,4,6,3])
+    return PreActResNet(args, PreActBottleneck, [3,4,6,3], [64, 128, 256, 512])
 
 def PreActResNet101(args):
-    return PreActResNet(args, PreActBottleneck, [3,4,23,3])
+    return PreActResNet(args, PreActBottleneck, [3,4,23,3], [64, 128, 256, 512])
 
 def PreActResNet152(args):
-    return PreActResNet(args, PreActBottleneck, [3,8,36,3])
+    return PreActResNet(args, PreActBottleneck, [3,8,36,3], [64, 128, 256, 512])
+
+# Modified ResNet with the fourth layer removed
+def PreActResNet14(args):
+    return PreActResNet(args, PreActBlock, [2, 2, 2], [64, 128, 256])
+
+def PreActResNet28(args):
+    return PreActResNet(args, PreActBlock, [3, 4, 6], [64, 128, 256])
+
+def PreActResNet41(args):
+    return PreActResNet(args, PreActBottleneck, [3, 4, 6], [64, 128, 256])
+
+def PreActResNet92(args):
+    return PreActResNet(args, PreActBottleneck, [3, 4, 23], [64, 128, 256])
+
+def PreActResNet143(args):
+    return PreActResNet(args, PreActBottleneck, [3, 8, 36], [64, 128, 256])
 
 def PreActResNetN(args):
     if args.encoder == "resnet18":
@@ -150,5 +164,16 @@ def PreActResNetN(args):
         return PreActResNet101(args)
     elif args.encoder == "resnet152":
         return PreActResNet152(args)
+
+    elif args.encoder == "resnet14":
+        return PreActResNet14(args)
+    elif args.encoder == "resnet28":
+        return PreActResNet28(args)
+    elif args.encoder == "resnet41":
+        return PreActResNet41(args)
+    elif args.encoder == "resnet92":
+        return PreActResNet92(args)
+    elif args.encoder == "resnet143":
+        return PreActResNet143(args)
 
 
