@@ -166,6 +166,18 @@ class PreActResNet_Encoder(nn.Module):
             
             z = self.classifier(z)
 
+            # CPCV2 Modified Classifier - doesn't show improved results
+            # batch normalisation is applied first
+            # classifier is applied to each encoding in the grid
+            # mean classifictaion is taken over grid
+            # z = z.permute(0, 3, 1, 2) # make encoding_size the channel dimension
+            # z = self.bn(z)
+            # z = z.permute(0, 2, 3, 1)
+            # z = z.view(z.shape[0] * grid_size * grid_size, self.encoding_size)
+            # z = self.classifier(z)
+            # z = z.view(-1, grid_size * grid_size, self.args.num_classes)
+            # z = torch.mean(z, dim=1)
+
         return z
 
 
