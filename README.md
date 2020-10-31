@@ -3,7 +3,7 @@ PyTorch Lightning implementation of the following papers:
 
 A. v. d. Oord, Y. Li, and O. Vinyals, [Representation learning with contrastive predictive coding](https://arxiv.org/abs/1807.03748)
 
-O. J. H ́enaff, A. Srinivas, J. D. Fauw, A. Razavi, C. Doersch, S. M. A. Eslami, and A. van den Oord [Data-Efficient Image Recognition with Contrastive Predictive Coding](https://arxiv.org/abs/1905.09272>)
+O. J. H ́enaff, A. Srinivas, J. D. Fauw, A. Razavi, C. Doersch, S. M. A. Eslami, and A. van den Oord [Data-Efficient Image Recognition with Contrastive Predictive Coding](https://arxiv.org/abs/1905.09272)
 
 ## Dependencies
 * PyTorch (verified with version 1.6.0)

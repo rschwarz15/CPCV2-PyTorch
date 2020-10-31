@@ -170,6 +170,7 @@ class PreActResNet_Encoder(nn.Module):
             # batch normalisation is applied first
             # classifier is applied to each encoding in the grid
             # mean classifictaion is taken over grid
+            # to not train the scale parameter, bn.weight needs to be excluded from training parameters
             # z = z.permute(0, 3, 1, 2) # make encoding_size the channel dimension
             # z = self.bn(z)
             # z = z.permute(0, 2, 3, 1)
