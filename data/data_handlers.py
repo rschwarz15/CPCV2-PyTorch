@@ -6,6 +6,8 @@ import torchvision
 import torchvision.transforms as transforms
 from data.image_preprocessing import *
 
+from data.noisy_cifar import Noisy_CIFAR10, Noisy_CIFAR100
+
 import os
 import numpy as np
 
@@ -167,7 +169,19 @@ def get_cifar_dataloader(args, cifar_classes):
         test_dataset = torchvision.datasets.CIFAR100(
             data_path, train=False, transform=transform_valid, download=args.download_dataset
         )
-    
+
+        # Noisy Data
+        # noise_rate = 0.5
+        # noise_type = 'pairflip' # pairflip or symmetric
+        # unsupervised_dataset = Noisy_CIFAR100(
+        #     root=data_path, train=True, transform=transform_train, download=args.download_dataset, 
+        #     noise_type=noise_type, noise_rate=noise_rate
+        # )
+        # test_dataset = Noisy_CIFAR100(
+        #     root=data_path, train=False, transform=transform_valid, download=args.download_dataset, 
+        #     noise_type=noise_type, noise_rate=noise_rate
+        # )
+
     else:
         raise Exception("Not a valid number of classes for CIFAR")
 

@@ -33,9 +33,9 @@ There are two training functions, one for the unsupervised training and one for 
     ```
 *  Training Wideresnet-28-2 on CIFAR10 with CPCV2 (and a smaller grid size) - Unsupervised Stage
     ```
-    python  train_CPC.py --dataset  cifar10  --epochs  500  --crop 32-4--encoder wideresnet -28-2  --norm  layer  --grid_size 5 --pred_steps 3 --pred_directions 4 --patch_aug 
+    python  train_CPC.py --dataset  cifar10  --epochs  500  --crop 30-2 --encoder wideresnet -28-2  --norm  layer  --grid_size 5 --pred_steps 3 --pred_directions 4 --patch_aug 
     ```
 *  Training Wideresnet-28-2 on CIFAR10 with CPCV2 (and a smaller grid size) - Supervised Stage with 10,000 labeled images
     ```
-    python  train_classifier.py --dataset  cifar10  --train_size  10000 --epochs  100  --lr 0.1 --crop 32-4 --encoder  wideresnet -28-2  --norm layer  --grid_size 5 --pred_directions 4 --cpc_patch_aug  --patch_aug --model_num  500    
+    python  train_classifier.py --dataset  cifar10  --train_size  10000 --epochs  100  --lr 0.1 --crop 30-2 --encoder  wideresnet -28-2  --norm layer  --grid_size 5 --pred_directions 4 --cpc_patch_aug  --patch_aug --model_num  500    
     ```

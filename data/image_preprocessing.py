@@ -46,7 +46,7 @@ class Patchify(object):
 
 class PatchifyAugment(Patchify):
     """ 
-    Extends Patchify for grayscale images
+    Extends Patchify and performs augmentation
     Converts a tensor (C x H x W) to a grid of tensors (grid_size x grid_size x C x patch_size x patch_size)
     Then for each patch applies 2 of the AutoAugment transformations
     Returns a tensor of (grid_size x grid_size x C x patch_size x patch_size)
@@ -118,6 +118,21 @@ class PatchifyAugment(Patchify):
 
                         # Convert PIL back to tensor
                         x[patch_row][patch_col] = transforms.ToTensor()(patch_PIL)
+
+                # Add other CPCV2 Augmentations...
+
+                # 2. Using the primitives from De Fauw et al. (2018)
+                # Randomly apply elastic deformation and shearing with a probability of 0.2. 
+                # Randomly apply their colorhistogram automentations with a probability of 0.2.
+                
+                # 3. Randomly apply the color augmentations from
+                # Szegedy et al. (2014) with a probability of 0.8.
+
+                # 4. Greyscale with 25% chance
+                if random.random() < 0.25:
+                    patch_PIL = transforms.ToPILImage()(patch)
+                    patch_PIL = transforms.Grayscale()(patch_PIL)
+                    x[patch_row][patch_col] = transforms.ToTensor()(patch_PIL)
 
         return x
 
