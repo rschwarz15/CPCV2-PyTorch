@@ -7,14 +7,24 @@ import random
 
 
 class Patchify(object):     
-    """
-    Converts a tensor (C x H x W) to a grid of tensors (grid_size x grid_size x C x patch_size x patch_size)
+    """Convert tensor image into grid of patches, where each path overlaps half of its neighbours
+
+    Args:
+        grid_size (int): defines the output grid size for the patchification
     """
     def __init__(self, grid_size):
         self.grid_size = grid_size
         self.patch_size = None
 
     def __call__(self, x):
+        """
+        Args:
+            tensor (Tensor): Tensor image of size (C, H, W) to be patchified.
+
+        Returns:
+            Tensor: Patchified Tensor image of shape (grid_size x grid_size x C x patch_size x patch_size)
+        """
+
         # Calculate the size of the patches
         if self.patch_size is None:         
             # Patchifying requires a square input image
@@ -45,11 +55,12 @@ class Patchify(object):
 
 
 class PatchifyAugment(Patchify):
-    """ 
-    Extends Patchify and performs augmentation
-    Converts a tensor (C x H x W) to a grid of tensors (grid_size x grid_size x C x patch_size x patch_size)
-    Then for each patch applies 2 of the AutoAugment transformations
-    Returns a tensor of (grid_size x grid_size x C x patch_size x patch_size)
+    """Convert tensor image into grid of patches, where each path overlaps half of its neighbours. 
+    Then applies patch based augmentation.
+
+    Args:
+        gray (boolean): defines whether the input tensor is coloured or not
+        grid_size (int): defines the output grid size for the patchification
     """
 
     def __init__(self, gray, grid_size):
@@ -79,6 +90,13 @@ class PatchifyAugment(Patchify):
             self.transformations.append(self.Color)
 
     def __call__(self, x):
+        """
+        Args:
+            tensor (Tensor): Tensor image of size (C, H, W) to be patchified and augmented.
+
+        Returns:
+            Tensor: Patchified and Augmented Tensor image of shape (grid_size x grid_size x C x patch_size x patch_size)
+        """
         # Patchify using parent class
         x = super().__call__(x) 
         
@@ -285,14 +303,26 @@ class PostPatchAugNormalizeReshape(object):
 
 
 class PatchAugNormalize(object):
-    """
-    Combines Pre_PatchAug_Norm_Reshape, Normalize and Post_PatchAug_Norm_Reshape
+    """Normalize a tensor image with mean and standard deviation.
+    Given the input shape of (grid_size x grid_size x C x patch_size x patch_size) 
+    it performs reshaping before and after the normalization
+
+    Args:
+        mean (sequence): Sequence of means for each channel.
+        std (sequence): Sequence of standard deviations for each channel.
     """
     def __init__(self, mean, std):
         self.mean = mean
         self.std = std
 
     def __call__(self, img):
+        """
+        Args:
+            tensor (Tensor): Tensor image of size (grid_size x grid_size x C x patch_size x patch_size) to be normalized.
+
+        Returns:
+            Tensor: Normalized Tensor image.
+        """
         img = PrePatchAugNormalizeReshape()(img)
         img = transforms.Normalize(mean=self.mean, std=self.std)(img)
         img = PostPatchAugNormalizeReshape()(img)

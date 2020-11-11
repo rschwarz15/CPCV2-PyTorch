@@ -1,13 +1,21 @@
-# From:
-# https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/InfoNCE_Loss.py
-# https://github.com/loeweX/Greedy_InfoMax/blob/master/LICENSE
-
 import torch
 import torch.nn as nn
 from torch.nn.modules.loss import _WeightedLoss
 import torch.nn.functional as F
 
 class InfoNCE_Loss(nn.Module):
+    """Performs predictions and InfoNCE Loss
+
+    Modified From:
+    https://github.com/loeweX/Greedy_InfoMax/blob/master/GreedyInfoMax/vision/models/InfoNCE_Loss.py
+    https://github.com/loeweX/Greedy_InfoMax/blob/master/LICENSE
+
+    Args:
+        pred_steps (int): number of steps into the future to perform predictions
+        neg_samples (int): number of negative samples to be used for contrastive loss
+        in_channels (int): number of channels of input tensors (size of encoding vector from encoder network and autoregressive network)
+    """
+    
     def __init__(self, pred_steps, neg_samples, in_channels):
         super().__init__()
         
