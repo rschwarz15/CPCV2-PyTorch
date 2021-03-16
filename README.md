@@ -1,5 +1,5 @@
 # Contrastive Predictive Coding
-PyTorch Lightning implementation of the following papers:
+PyTorch implementation of the following papers:
 
 A. v. d. Oord, Y. Li, and O. Vinyals, [Representation learning with contrastive predictive coding](https://arxiv.org/abs/1807.03748)
 
